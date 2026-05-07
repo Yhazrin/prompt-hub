@@ -1,4 +1,5 @@
 import axios from 'axios';
+import sharp from 'sharp';
 import fs from 'fs';
 import path from 'path';
 import https from 'https';
@@ -176,16 +177,20 @@ export async function downloadImage(token) {
       }
     );
 
-    const contentType = response.headers['content-type'] || '';
-    let ext = 'png';
-    if (contentType.includes('jpeg') || contentType.includes('jpg')) ext = 'jpg';
-    else if (contentType.includes('gif')) ext = 'gif';
-    else if (contentType.includes('webp')) ext = 'webp';
-
-    const filePath = path.join(IMAGE_DIR, `${token}.${ext}`);
-    fs.writeFileSync(filePath, Buffer.from(response.data));
-    console.log(`Downloaded image ${token} -> ${filePath} (${Buffer.from(response.data).length} bytes)`);
-    return `/images/${token}.${ext}`;
+    // Always save as JPEG for smaller file size (PNG from Feishu are often uncompressed)
+    const filePath = path.join(IMAGE_DIR, `${token}.jpg`);
+    try {
+      await sharp(Buffer.from(response.data))
+        .jpeg({ quality: 82, progressive: true })
+        .toFile(filePath);
+      const size = fs.statSync(filePath).size;
+      console.log(`Downloaded+compressed image ${token} -> ${filePath} (${size} bytes)`);
+    } catch (convErr) {
+      // Fallback: save raw data if sharp fails
+      fs.writeFileSync(filePath, Buffer.from(response.data));
+      console.log(`Downloaded image ${token} (raw, ${Buffer.from(response.data).length} bytes)`);
+    }
+    return `/images/${token}.jpg`;
   } catch (err) {
     console.warn(`downloadImage ${token} failed:`, err.message);
     return null;
