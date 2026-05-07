@@ -1,5 +1,5 @@
-import { upsertPrompt, addSyncLog, updateSyncLog } from './database.js';
-import { fetchWikiNodes, fetchDocMarkdown, parseDocMarkdownToPrompts } from './feishu.js';
+import { upsertPrompt, addSyncLog, updateSyncLog, upsertCategory, getCategories } from './database.js';
+import { fetchWikiNodes, fetchDocRawContent, parseDocMarkdownToPrompts, categoryNameToId } from './feishu.js';
 
 export async function syncAllFromWiki() {
   const logEntry = addSyncLog('full', 'running', 0, []);
@@ -11,11 +11,34 @@ export async function syncAllFromWiki() {
     const nodes = await fetchWikiNodes();
     console.log(`📋 Found ${nodes.length} wiki nodes`);
 
+    // Step 1: Build category map from root-level nodes
+    const categoryMap = {};
+    for (const node of nodes) {
+      if (!node.parent_node_token) {
+        const name = node.title || '未分类';
+        const id = categoryNameToId(name);
+        categoryMap[node.node_token] = { name, id };
+      }
+    }
+
+    // Step 2: Upsert categories dynamically from wiki
+    let sortOrder = 1;
+    for (const cat of Object.values(categoryMap)) {
+      upsertCategory({ id: cat.id, name: cat.name, sort_order: sortOrder++ });
+    }
+
+    // Step 3: Process leaf nodes
     for (const node of nodes) {
       if (!node.obj_token || node.obj_type !== 'docx') continue;
 
+      const catInfo = node.parent_node_token
+        ? (categoryMap[node.parent_node_token] || null)
+        : null;
+      const categoryId = catInfo ? catInfo.id : 'other';
+      const categoryName = catInfo ? catInfo.name : '未分类';
+
       try {
-        const docInfo = await fetchDocMarkdown(node.obj_token);
+        const docInfo = await fetchDocRawContent(node.obj_token);
         if (!docInfo?.document?.markdown) continue;
 
         const markdown = docInfo.document.markdown;
@@ -30,6 +53,8 @@ export async function syncAllFromWiki() {
           upsertPrompt({
             ...prompt,
             wiki_doc_title: node.title || prompt.wiki_doc_title,
+            category_id: categoryId,
+            subcategory: categoryName,
           });
           syncedCount++;
         }

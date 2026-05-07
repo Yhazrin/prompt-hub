@@ -14,24 +14,21 @@ jobs:
 
       - name: Upload and deploy to server
         run: |
-          # Install sshpass for password auth
           apt-get update -qq && apt-get install -y -qq sshpass > /dev/null 2>&1
           
-          # Package code (exclude node_modules, data, .git, .github)
           tar \
             --exclude='.git' \
             --exclude='.github' \
             --exclude='node_modules' \
-            --exclude='data' \
             --exclude='*.log' \
             -czf /tmp/prompt-hub.tar.gz .
-          
+
           echo "=== Uploading to server ==="
           sshpass -p '${{ secrets.SERVER_PASSWORD }}' \
             scp -o StrictHostKeyChecking=no -P ${{ secrets.SERVER_SSH_PORT }} \
             /tmp/prompt-hub.tar.gz \
             ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/tmp/prompt-hub.tar.gz
-          
+
           echo "=== Deploying on server ==="
           sshpass -p '${{ secrets.SERVER_PASSWORD }}' \
             ssh -o StrictHostKeyChecking=no -p ${{ secrets.SERVER_SSH_PORT }} \
