@@ -63,7 +63,16 @@ export function getPrompt(id) { return data.prompts.find(p => p.id === id) || nu
 export function upsertPrompt(prompt) {
   const idx = data.prompts.findIndex(p => p.wiki_node_token === prompt.wiki_node_token && p.title === prompt.title);
   if (idx >= 0) {
-    data.prompts[idx] = { ...data.prompts[idx], ...prompt, updated_at: Date.now() };
+    const existing = data.prompts[idx];
+    // Only overwrite image fields if new value is truthy (preserve existing otherwise)
+    const merged = {
+      ...existing,
+      ...prompt,
+      updated_at: Date.now(),
+    };
+    if (!prompt.image_url) merged.image_url = existing.image_url;
+    if (!prompt.image_token) merged.image_token = existing.image_token;
+    data.prompts[idx] = merged;
   } else {
     data.prompts.push({ ...prompt, created_at: Date.now(), updated_at: Date.now() });
   }

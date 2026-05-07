@@ -342,7 +342,7 @@ export function parseDocMarkdownToPrompts(markdown, docTitle, wikiNodeToken, obj
       id: `${objToken}_${idx}`,
       title,
       prompt_text: promptText.trim(),
-      image_url: imageUrl,
+      image_url: imageUrl || undefined,
       image_token: imageToken,
       cover_url: coverUrl,
       ratio,
