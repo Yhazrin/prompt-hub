@@ -248,7 +248,15 @@ function createMosaicCard(prompt, index, catMap) {
       '<div class="mc-placeholder-inner">' +
       '<span class="mc-cat-bar" style="background:' + colors.accent + '"></span>' +
       '<p class="mc-text-preview">' + truncate(prompt.prompt_text, 110) + '</p>' +
-      '</div></div>';
+      '</div>' +
+      '<div class="mc-text-badge">' +
+        '<svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">' +
+          '<rect x="1" y="2.5" width="9" height="6" rx="1.5" stroke="currentColor" stroke-width="1.1"/>' +
+          '<path d="M3 5h5M3 7h3" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>' +
+        '</svg>' +
+        '\u6587\u5b57\u63d0\u793a\u8bcd' +
+      '</div>' +
+    '</div>';
   }
 
   card.innerHTML = '<div class="mc-media" style="aspect-ratio:' + ratio.replace('/', ' / ') + '">' + mediaHtml + '</div>' +
