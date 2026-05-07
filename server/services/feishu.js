@@ -338,13 +338,12 @@ export function parseDocMarkdownToPrompts(markdown, docTitle, wikiNodeToken, obj
       imageUrl = getImageUrl(imageToken);
     }
 
-    prompts.push({
+    const promptData = {
       id: `${objToken}_${idx}`,
       title,
       prompt_text: promptText.trim(),
-      image_url: imageUrl || undefined,
-      image_token: imageToken,
-      cover_url: coverUrl,
+      image_token: imageToken || undefined,
+      cover_url: coverUrl || undefined,
       ratio,
       category_id: 'other',
       subcategory: docTitle,
@@ -354,7 +353,9 @@ export function parseDocMarkdownToPrompts(markdown, docTitle, wikiNodeToken, obj
       source_url: extractSource(markdown),
       tags: extractTags(markdown),
       sync_status: 'synced',
-    });
+    };
+    if (imageUrl) promptData.image_url = imageUrl;
+    prompts.push(promptData);
   });
 
   return prompts;
