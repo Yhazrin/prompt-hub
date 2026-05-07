@@ -1,0 +1,11 @@
+[
+  {
+    "id": 1,
+    "sync_type": "seed",
+    "status": "success",
+    "items_synced": 15,
+    "errors": null,
+    "started_at": 1746547200,
+    "completed_at": 1746547200
+  }
+]

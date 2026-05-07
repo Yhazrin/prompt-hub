@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prompt Hub · AI 视觉灵感库</title>
+  <meta name="description" content="AI 图片提示词灵感库，支持双向同步飞书知识库，每张图都配有可直接复制的 AI 提示词">
+  <link rel="icon" type="image/svg+xml" href="/src/assets/logo.svg">
+  <link rel="preconnect" href="https://images.unsplash.com">
+  <link rel="stylesheet" href="/src/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="Prompt Hub 首页">
+      <svg class="brand-logo" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <rect width="40" height="40" rx="10" fill="#1a1a1a"/>
+        <path d="M12 20L18 26L28 14" stroke="#ffa8c5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="20" cy="20" r="12" stroke="#ffa8c5" stroke-width="2" opacity="0.3"/>
+      </svg>
+      <span class="brand-name">Prompt Hub</span>
+    </a>
+
+    <nav class="primary-nav" id="primaryNav" aria-label="一级分类">
+      <span class="nav-indicator" id="navIndicator" aria-hidden="true"></span>
+    </nav>
+
+    <div class="topbar-actions">
+      <div class="sync-status" id="syncStatus" title="同步状态">
+        <span class="sync-dot" id="syncDot"></span>
+        <span class="sync-label" id="syncLabel">同步中...</span>
+      </div>
+      <button class="topbar-btn" id="searchBtn" aria-label="搜索">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+      </button>
+      <button class="topbar-btn" id="refreshBtn" aria-label="刷新同步" title="手动同步">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="search-overlay" id="searchOverlay" hidden>
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="搜索提示词..." autocomplete="off" autofocus>
+      <button class="search-close" id="searchClose" aria-label="关闭">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div class="search-results" id="searchResults"></div>
+  </div>
+
+  <div class="layout">
+    <aside class="sidebar" aria-label="二级分类">
+      <div class="sub-wrap">
+        <span class="sub-pill" id="subPill" aria-hidden="true"></span>
+        <ul class="sub-nav" id="subNav"></ul>
+      </div>
+    </aside>
+
+    <main class="content">
+      <div class="home" id="homeView">
+        <div class="home-hero">
+          <h1>AI 视觉灵感库</h1>
+          <p>收藏提示词与生图效果，支持双向同步飞书知识库，每张图都配有可直接复制的 AI 提示词</p>
+        </div>
+        <div class="home-sections" id="homeSections"></div>
+      </div>
+
+      <div class="category-view" id="categoryView" hidden>
+        <div class="category-header" id="categoryHeader"></div>
+        <div class="grid" id="grid" aria-live="polite"></div>
+      </div>
+    </main>
+  </div>
+
+  <footer class="footer" role="contentinfo">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <a class="footer-brand-mark" href="#">
+          <svg viewBox="0 0 40 40" fill="none" width="28" height="28">
+            <rect width="40" height="40" rx="10" fill="#1a1a1a"/>
+            <path d="M12 20L18 26L28 14" stroke="#ffa8c5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span class="footer-brand-name">Prompt Hub</span>
+        </a>
+        <p class="footer-tagline">AI 图片提示词灵感库，支持双向同步飞书知识库，每张图都配有可直接复制的 AI 提示词</p>
+      </div>
+      <nav class="footer-col" aria-label="分类导航">
+        <span class="footer-col-title">分类</span>
+        <ul class="footer-links" id="footerCats"></ul>
+      </nav>
+      <div class="footer-col">
+        <span class="footer-col-title">数据</span>
+        <ul class="footer-links">
+          <li><button type="button" id="adminSyncBtn">手动同步</button></li>
+          <li><a href="/admin/sync-log" target="_blank">同步日志</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span id="footerYear">2026</span> Prompt Hub · 双向同步飞书知识库</span>
+      <span class="footer-meta" id="footerStats"></span>
+    </div>
+  </footer>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="查看大图" hidden>
+    <button class="lightbox-close" id="lightboxClose" type="button" aria-label="关闭大图">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <path d="M6 6L18 18M18 6L6 18"/>
+      </svg>
+    </button>
+    <button class="lightbox-nav lightbox-prev" id="lightboxPrev" type="button" aria-label="上一张">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M15 5L8 12L15 19"/></svg>
+    </button>
+    <button class="lightbox-nav lightbox-next" id="lightboxNext" type="button" aria-label="下一张">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 5L16 12L9 19"/></svg>
+    </button>
+    <div class="lightbox-stage">
+      <figure class="lightbox-figure">
+        <div class="lightbox-image-wrap" id="lightboxImageWrap">
+          <img class="lightbox-image" id="lightboxImage" alt="" />
+        </div>
+        <figcaption class="lightbox-caption">
+          <div class="lightbox-caption-head">
+            <span class="lightbox-caption-title">提示词</span>
+            <span class="lightbox-counter" id="lightboxCounter"></span>
+          </div>
+          <p class="lightbox-prompt" id="lightboxPrompt"></p>
+          <div class="lightbox-actions">
+            <button class="lightbox-copy" id="lightboxCopy" type="button">复制提示词</button>
+            <span class="lightbox-source" id="lightboxSource"></span>
+          </div>
+        </figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="/src/script.js" type="module"></script>
+</body>
+</html>

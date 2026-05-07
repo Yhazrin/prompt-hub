@@ -1,0 +1,23 @@
+{
+  "name": "prompt-hub",
+  "version": "1.0.0",
+  "description": "AI Prompt Hub - 飞书知识库双向同步展示站",
+  "main": "server/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "sync": "node server/scripts/sync.js",
+    "client:dev": "npx serve client -l 3001"
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "node-cron": "^3.0.3"
+  },
+  "devDependencies": {
+    "serve": "^14.2.4"
+  }
+}

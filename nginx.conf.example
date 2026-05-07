@@ -1,0 +1,74 @@
+# ================================================
+# Prompt Hub - Nginx 配置示例
+# 保存到 /etc/nginx/sites-available/prompt-hub
+# 然后: sudo ln -s /etc/nginx/sites-available/prompt-hub /etc/nginx/sites-enabled/
+# ================================================
+
+server {
+    listen 80;
+    server_name your-domain.com;  # ← 替换为你的域名
+
+    # 强制跳转 HTTPS（可选，Let's Encrypt 证书后开启）
+    # return 301 https://$server_name$request_uri;
+}
+
+# HTTPS 版本（需要先申请 SSL 证书）
+# ================================================
+# 先申请证书：
+# sudo certbot --nginx -d your-domain.com
+# ================================================
+# 
+# server {
+#     listen 443 ssl http2;
+#     server_name your-domain.com;
+# 
+#     ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
+#     ssl_trusted_certificate /etc/letsencrypt/live/your-domain.com/chain.pem;
+# 
+#     # 安全头
+#     add_header X-Frame-Options "SAMEORIGIN" always;
+#     add_header X-Content-Type-Options "nosniff" always;
+#     add_header X-XSS-Protection "1; mode=block" always;
+# 
+#     root /opt/prompt-hub/client;
+#     index index.html;
+# 
+#     # Gzip 压缩
+#     gzip on;
+#     gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
+#     gzip_min_length 1000;
+# 
+#     # API 代理到 Node.js 后端
+#     location /api/ {
+#         proxy_pass http://127.0.0.1:3000/api/;
+#         proxy_http_version 1.1;
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Real-IP $remote_addr;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto $scheme;
+#     }
+# 
+#     # Admin API
+#     location /admin/ {
+#         proxy_pass http://127.0.0.1:3000/admin/;
+#         proxy_http_version 1.1;
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Real-IP $remote_addr;
+#     }
+# 
+#     # 静态文件（前端）
+#     location / {
+#         try_files $uri $uri/ /index.html;
+#         expires 7d;
+#         add_header Cache-Control "public, immutable";
+#     }
+# 
+#     # 禁止访问敏感目录
+#     location ~ /\.(?!well-known) {
+#         deny all;
+#     }
+# 
+#     access_log /var/log/prompt-hub/access.log;
+#     error_log /var/log/prompt-hub/error.log;
+# }

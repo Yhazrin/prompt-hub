@@ -1,0 +1,68 @@
+[
+  {
+    "id": "meme",
+    "name": "Meme 提示词",
+    "description": "极简抽象海报风格",
+    "sort_order": 1
+  },
+  {
+    "id": "hanzi",
+    "name": "汉字意象徽记",
+    "description": "汉字与徽记设计",
+    "sort_order": 2
+  },
+  {
+    "id": "playful",
+    "name": "趣味图形标志",
+    "description": "Playful 图形风格",
+    "sort_order": 3
+  },
+  {
+    "id": "illustration",
+    "name": "插画",
+    "description": "各类插画风格",
+    "sort_order": 4
+  },
+  {
+    "id": "travel",
+    "name": "旅行",
+    "description": "旅行博主风格",
+    "sort_order": 5
+  },
+  {
+    "id": "edu",
+    "name": "教学科普",
+    "description": "知识卡片插画",
+    "sort_order": 6
+  },
+  {
+    "id": "poster",
+    "name": "海报",
+    "description": "各类海报风格",
+    "sort_order": 7
+  },
+  {
+    "id": "tech",
+    "name": "科技风格",
+    "description": "科技未来感",
+    "sort_order": 8
+  },
+  {
+    "id": "arch",
+    "name": "建筑渲染",
+    "description": "建筑白模渲染",
+    "sort_order": 9
+  },
+  {
+    "id": "logo",
+    "name": "Logo 设计",
+    "description": "破格编排标题型",
+    "sort_order": 10
+  },
+  {
+    "id": "effect",
+    "name": "特效",
+    "description": "破屏穿越特效",
+    "sort_order": 11
+  }
+]
