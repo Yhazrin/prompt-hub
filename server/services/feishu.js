@@ -135,22 +135,22 @@ function getImageUrl(token) {
 // Extract cover URL from markdown header.
 // Supports: cover: https://...  or cover:https://...
 // Looks only in the first 600 chars (the header/metadata area).
+// Extract cover URL from markdown header.
+// Supports: cover: https://...  or  cover: img_xxx  (feishu token)
 function extractCoverUrl(markdown, imageTokens) {
   const header = markdown.slice(0, 600);
-  // Match cover: followed by URL
-  const match = header.match(/^cover:\s*(https?:\/\/[^\s]+)/im);
+  // Match cover: followed by URL or img token
+  const match = header.match(/^cover:\s*(\S+)/im);
   if (match) {
-    const url = match[1].trim();
-    // If it's a feishu image token (img_xxx), convert to CDN URL
-    if (url.startsWith('img_')) {
-      return getImageUrl(url);
-    }
-    return url;
+    const val = match[1].trim();
+    // Feishu image token img_xxx -> convert to CDN URL
+    if (val.startsWith('img_')) return getImageUrl(val);
+    // Otherwise treat as full URL (https://...)
+    if (val.startsWith('http')) return val;
+    return null;
   }
-  // Fallback: use the first image token as cover
-  if (imageTokens.length > 0) {
-    return getImageUrl(imageTokens[0]);
-  }
+  // Fallback: use first image token as cover
+  if (imageTokens.length > 0) return getImageUrl(imageTokens[0]);
   return null;
 }
 
