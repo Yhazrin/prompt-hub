@@ -248,7 +248,7 @@ function createHomeTile(prompt) {
   tile.setAttribute('tabindex', '0');
 
   const img = document.createElement('img');
-  img.src = prompt.image_url || `https://picsum.photos/seed/${prompt.id}/400/400`;
+  img.src = (prompt.cover_url || prompt.image_url || `https://picsum.photos/seed/${prompt.id}/400/400`);
   img.alt = prompt.title;
   img.loading = 'lazy';
   img.onload = () => tile.classList.add('is-loaded');
@@ -272,7 +272,7 @@ function createCard(prompt, index) {
   card.setAttribute('tabindex', '0');
 
   const img = document.createElement('img');
-  img.src = prompt.image_url || `https://picsum.photos/seed/${prompt.id}/400/300`;
+  img.src = (prompt.cover_url || prompt.image_url || `https://picsum.photos/seed/${prompt.id}/400/300`);
   img.alt = prompt.title;
   img.loading = 'lazy';
   img.onload = () => card.classList.add('is-loaded');
@@ -328,7 +328,7 @@ function openLightbox(index) {
     imgWrap.classList.remove('is-loading');
     img.classList.add('is-loaded');
   };
-  img.src = prompt.image_url || `https://picsum.photos/seed/${prompt.id}/800/600`;
+  img.src = (prompt.cover_url || prompt.image_url || `https://picsum.photos/seed/${prompt.id}/800/600`);
 
   promptEl.textContent = prompt.prompt_text || prompt.title;
   counter.textContent = `${index + 1} / ${state.currentPrompts.length}`;
@@ -488,7 +488,7 @@ async function doSearch(query) {
       const item = document.createElement('div');
       item.className = 'search-result-item';
       item.innerHTML = `
-        <img class="search-result-thumb" src="${p.image_url || `https://picsum.photos/seed/${p.id}/100/100`}" alt="" loading="lazy">
+        <img class="search-result-thumb" src="${(p.cover_url || p.image_url || `https://picsum.photos/seed/${p.id}/100/100`)}" alt="" loading="lazy">
         <div class="search-result-text">
           <div class="search-result-title">${p.title}</div>
           <div class="search-result-cat">${p.category_name || ''} · ${p.wiki_doc_title || ''}</div>

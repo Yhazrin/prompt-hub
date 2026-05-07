@@ -132,10 +132,33 @@ function getImageUrl(token) {
   return `https://internal-api-drive-stream.feishu.cn/space/api/box/stream/download/v2/cover/${token}/?height=800`;
 }
 
+// Extract cover URL from markdown header.
+// Supports: cover: https://...  or cover:https://...
+// Looks only in the first 600 chars (the header/metadata area).
+function extractCoverUrl(markdown, imageTokens) {
+  const header = markdown.slice(0, 600);
+  // Match cover: followed by URL
+  const match = header.match(/^cover:\s*(https?:\/\/[^\s]+)/im);
+  if (match) {
+    const url = match[1].trim();
+    // If it's a feishu image token (img_xxx), convert to CDN URL
+    if (url.startsWith('img_')) {
+      return getImageUrl(url);
+    }
+    return url;
+  }
+  // Fallback: use the first image token as cover
+  if (imageTokens.length > 0) {
+    return getImageUrl(imageTokens[0]);
+  }
+  return null;
+}
+
 export function parseDocMarkdownToPrompts(markdown, docTitle, wikiNodeToken, objToken) {
   const prompts = [];
   const imageTokens = extractImageTokens(markdown);
   const sections = splitByPromptSections(markdown);
+  const coverUrl = extractCoverUrl(markdown, imageTokens);
 
   sections.forEach((section, idx) => {
     const promptText = extractPromptText(section.markdown);
@@ -152,6 +175,7 @@ export function parseDocMarkdownToPrompts(markdown, docTitle, wikiNodeToken, obj
       prompt_text: promptText.trim(),
       image_url: imageToken ? getImageUrl(imageToken) : null,
       image_token: imageToken,
+      cover_url: coverUrl,
       ratio,
       category_id: 'other',
       subcategory: docTitle,
