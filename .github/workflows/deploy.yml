@@ -12,18 +12,35 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy to server via SSH
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          password: ${{ secrets.SERVER_PASSWORD }}
-          port: 22
-          script: |
-            set -e
-            cd /opt/prompt-hub
-            git pull origin main
-            npm install --production --silent
-            pm2 restart prompt-hub
-            curl -s -X POST http://127.0.0.1:3000/admin/sync || true
-            echo "Deploy complete at $(date)"
+      - name: Upload and deploy to server
+        run: |
+          # Install sshpass for password auth
+          apt-get update -qq && apt-get install -y -qq sshpass > /dev/null 2>&1
+          
+          # Package code (exclude node_modules, data, .git, .github)
+          tar \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='node_modules' \
+            --exclude='data' \
+            --exclude='*.log' \
+            -czf /tmp/prompt-hub.tar.gz .
+          
+          echo "=== Uploading to server ==="
+          sshpass -p '${{ secrets.SERVER_PASSWORD }}' \
+            scp -o StrictHostKeyChecking=no -P ${{ secrets.SERVER_SSH_PORT }} \
+            /tmp/prompt-hub.tar.gz \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/tmp/prompt-hub.tar.gz
+          
+          echo "=== Deploying on server ==="
+          sshpass -p '${{ secrets.SERVER_PASSWORD }}' \
+            ssh -o StrictHostKeyChecking=no -p ${{ secrets.SERVER_SSH_PORT }} \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+            '
+              cd /opt/prompt-hub
+              tar -xzf /tmp/prompt-hub.tar.gz --strip-components=1
+              npm install --production --silent
+              pm2 restart prompt-hub || pm2 start ecosystem.config.cjs
+              curl -s -X POST http://127.0.0.1:3000/admin/sync || true
+              echo "Deploy complete at $(date)"
+            '
