@@ -1,8 +1,13 @@
 import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
+import https from 'https';
+import http from 'http';
 
 const WIKI_SPACE_ID = process.env.FEISHU_WIKI_SPACE_ID || '7636413876925385947';
 const FEISHU_APP_ID = process.env.FEISHU_APP_ID;
 const FEISHU_APP_SECRET = process.env.FEISHU_APP_SECRET;
+const IMAGE_DIR = process.env.IMAGE_DIR || '/opt/prompt-hub/images';
 
 let accessToken = null;
 let tokenExpiry = 0;
@@ -59,7 +64,6 @@ const CATEGORY_SLUG_MAP = {
 export function categoryNameToId(name) {
   if (!name) return 'other';
   if (CATEGORY_SLUG_MAP[name]) return CATEGORY_SLUG_MAP[name];
-  // fallback: slugify
   return name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w\u4e00-\u9fa5-]/g, '').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'other';
 }
 
@@ -105,7 +109,115 @@ export async function fetchWikiNodes() {
   }
 }
 
-// Fetch document raw content
+// Fetch document blocks (structured content including images)
+export async function fetchDocBlocks(objToken) {
+  try {
+    const blocks = [];
+    let pageToken = '';
+    do {
+      const params = { page_size: 50 };
+      if (pageToken) params.page_token = pageToken;
+      const data = await feishuGet(`/docx/v1/documents/${objToken}/blocks`, params);
+      const items = data?.items || [];
+      blocks.push(...items);
+      pageToken = data?.page_token || '';
+    } while (pageToken);
+    return blocks;
+  } catch (err) {
+    console.warn(`fetchDocBlocks error for ${objToken}:`, err.message);
+    return [];
+  }
+}
+
+// Extract image blocks (block_type=27) from blocks array
+export function extractImageBlocks(blocks) {
+  return blocks
+    .filter(b => b.block_type === 27 && b.image?.token)
+    .map(b => ({
+      block_id: b.block_id,
+      token: b.image.token,
+      width: b.image.width || 0,
+      height: b.image.height || 0,
+    }));
+}
+
+// Convert feishu image token to local CDN URL (doesn't download — download is done during sync)
+export function getLocalImageUrl(token) {
+  if (!token) return null;
+  // The local URL path — nginx serves /images/ from /opt/prompt-hub/images/
+  return `/images/${token}`;
+}
+
+// Download a feishu image token and save to local file
+export async function downloadImage(token) {
+  if (!token) return null;
+  // Check if already downloaded
+  const localPath = path.join(IMAGE_DIR, `${token}`);
+  if (fs.existsSync(localPath)) {
+    return `/images/${token}`;
+  }
+
+  const tk = await getAppAccessToken();
+  if (!tk) return null;
+
+  try {
+    // Ensure directory exists
+    if (!fs.existsSync(IMAGE_DIR)) {
+      fs.mkdirSync(IMAGE_DIR, { recursive: true });
+    }
+
+    // Download from Feishu Drive media API
+    const response = await axios.get(
+      `https://open.feishu.cn/open-apis/drive/v1/medias/${token}/download`,
+      {
+        headers: { Authorization: `Bearer ${tk}` },
+        responseType: 'arraybuffer',
+        timeout: 30000,
+      }
+    );
+
+    const contentType = response.headers['content-type'] || '';
+    let ext = 'png';
+    if (contentType.includes('jpeg') || contentType.includes('jpg')) ext = 'jpg';
+    else if (contentType.includes('gif')) ext = 'gif';
+    else if (contentType.includes('webp')) ext = 'webp';
+
+    const filePath = path.join(IMAGE_DIR, `${token}.${ext}`);
+    fs.writeFileSync(filePath, Buffer.from(response.data));
+    console.log(`Downloaded image ${token} -> ${filePath} (${Buffer.from(response.data).length} bytes)`);
+    return `/images/${token}.${ext}`;
+  } catch (err) {
+    console.warn(`downloadImage ${token} failed:`, err.message);
+    return null;
+  }
+}
+
+// Build image URL map from blocks: { token -> localUrl }
+// Downloads all images in parallel
+export async function buildImageUrlMap(blocks, docObjToken) {
+  const imageBlocks = extractImageBlocks(blocks);
+  if (imageBlocks.length === 0) return {};
+
+  const map = {};
+  // Download all images concurrently (limit concurrency to avoid overwhelming the API)
+  const batchSize = 3;
+  for (let i = 0; i < imageBlocks.length; i += batchSize) {
+    const batch = imageBlocks.slice(i, i + batchSize);
+    const results = await Promise.all(batch.map(async (img) => {
+      try {
+        const url = await downloadImage(img.token);
+        return { token: img.token, url };
+      } catch (err) {
+        console.warn(`downloadImage ${img.token} error:`, err.message);
+        return { token: img.token, url: null };
+      }
+    }));
+    results.forEach(r => { if (r.url) map[r.token] = r.url; });
+  }
+  return map;
+}
+
+// Fetch document raw content (markdown)
 export async function fetchDocRawContent(objToken) {
   try {
     const data = await feishuGet(`/docx/v1/documents/${objToken}/raw_content`, {});
@@ -116,7 +228,7 @@ export async function fetchDocRawContent(objToken) {
   }
 }
 
-// Parse image tokens from markdown
+// Parse image tokens from markdown (legacy, for raw markdown format)
 function extractImageTokens(markdown) {
   const tokens = [];
   const regex = /<image\s+token="([^"]+)"/g;
@@ -133,28 +245,70 @@ function getImageUrl(token) {
 }
 
 // Extract cover URL from markdown header.
-// Supports: cover: https://...  or cover:https://...
-// Looks only in the first 600 chars (the header/metadata area).
-// Extract cover URL from markdown header.
-// Supports: cover: https://...  or  cover: img_xxx  (feishu token)
 function extractCoverUrl(markdown, imageTokens) {
   const header = markdown.slice(0, 600);
-  // Match cover: followed by URL or img token
   const match = header.match(/^cover:\s*(\S+)/im);
   if (match) {
     const val = match[1].trim();
-    // Feishu image token img_xxx -> convert to CDN URL
     if (val.startsWith('img_')) return getImageUrl(val);
-    // Otherwise treat as full URL (https://...)
     if (val.startsWith('http')) return val;
     return null;
   }
-  // Fallback: use first image token as cover
   if (imageTokens.length > 0) return getImageUrl(imageTokens[0]);
   return null;
 }
 
-export function parseDocMarkdownToPrompts(markdown, docTitle, wikiNodeToken, objToken) {
+// Build section-to-image mapping based on block position in the document.
+// Image blocks that appear between section headers belong to that section.
+function buildSectionImageMap(blocks, imageUrlMap) {
+  const imageBlocks = extractImageBlocks(blocks);
+  if (imageBlocks.length === 0) return [];
+
+  // Find section boundaries (blocks with heading type)
+  const sectionBoundaries = [];
+  blocks.forEach((block, idx) => {
+    const text = getBlockText(block);
+    if (block.block_type === 3 || block.block_type === 4 || block.block_type === 5) {
+      if (text.match(/提示词原文|Prompt\s*\d+/i)) {
+        sectionBoundaries.push(idx);
+      }
+    }
+  });
+  sectionBoundaries.push(blocks.length);
+
+  // Assign images to sections
+  const sectionImages = [];
+  imageBlocks.forEach((img) => {
+    const imgIdx = blocks.findIndex(b => b.block_id === img.block_id);
+    // Find which section this image belongs to
+    let sectionIdx = 0;
+    for (let i = 0; i < sectionBoundaries.length - 1; i++) {
+      if (imgIdx >= sectionBoundaries[i] && imgIdx < sectionBoundaries[i + 1]) {
+        sectionIdx = i;
+        break;
+      }
+    }
+    const url = imageUrlMap[img.token] || null;
+    if (url) {
+      if (!sectionImages[sectionIdx]) sectionImages[sectionIdx] = [];
+      sectionImages[sectionIdx].push(url);
+    }
+  });
+
+  return sectionImages; // sectionImages[sectionIdx] = [url1, url2, ...]
+}
+
+function getBlockText(block) {
+  if (!block) return '';
+  if (block.heading1?.elements) return block.heading1.elements.map(e => e.text_run?.content || '').join('');
+  if (block.heading2?.elements) return block.heading2.elements.map(e => e.text_run?.content || '').join('');
+  if (block.heading3?.elements) return block.heading3.elements.map(e => e.text_run?.content || '').join('');
+  if (block.paragraph?.elements) return block.paragraph.elements.map(e => e.text_run?.content || '').join('');
+  if (block.text?.elements) return block.text.elements.map(e => e.text_run?.content || '').join('');
+  return '';
+}
+
+export function parseDocMarkdownToPrompts(markdown, docTitle, wikiNodeToken, objToken, imageUrlMap = {}, sectionImageMap = []) {
   const prompts = [];
   const imageTokens = extractImageTokens(markdown);
   const sections = splitByPromptSections(markdown);
@@ -169,11 +323,21 @@ export function parseDocMarkdownToPrompts(markdown, docTitle, wikiNodeToken, obj
     const ratio = extractRatio(section.markdown) || '4 / 5';
     const imageToken = imageTokens[idx] || imageTokens[0] || null;
 
+    // Determine image URL: section-specific > imageUrlMap > legacy token
+    let imageUrl = null;
+    if (sectionImageMap[idx]?.length > 0) {
+      imageUrl = sectionImageMap[idx][0]; // first image in this section
+    } else if (imageToken && imageUrlMap[imageToken]) {
+      imageUrl = imageUrlMap[imageToken];
+    } else if (imageToken) {
+      imageUrl = getImageUrl(imageToken);
+    }
+
     prompts.push({
       id: `${objToken}_${idx}`,
       title,
       prompt_text: promptText.trim(),
-      image_url: imageToken ? getImageUrl(imageToken) : null,
+      image_url: imageUrl,
       image_token: imageToken,
       cover_url: coverUrl,
       ratio,

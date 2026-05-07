@@ -1,5 +1,13 @@
-import { upsertPrompt, addSyncLog, updateSyncLog, upsertCategory, getCategories } from './database.js';
-import { fetchWikiNodes, fetchDocRawContent, parseDocMarkdownToPrompts, categoryNameToId } from './feishu.js';
+import { upsertPrompt, addSyncLog, updateSyncLog, upsertCategory } from './database.js';
+import {
+  fetchWikiNodes,
+  fetchDocBlocks,
+  fetchDocRawContent,
+  parseDocMarkdownToPrompts,
+  categoryNameToId,
+  buildImageUrlMap,
+  buildSectionImageMap,
+} from './feishu.js';
 
 export async function syncAllFromWiki() {
   const logEntry = addSyncLog('full', 'running', 0, []);
@@ -38,15 +46,30 @@ export async function syncAllFromWiki() {
       const categoryName = catInfo ? catInfo.name : '未分类';
 
       try {
-        const docInfo = await fetchDocRawContent(node.obj_token);
+        // Fetch blocks AND markdown in parallel for this doc
+        const [blocks, docInfo] = await Promise.all([
+          fetchDocBlocks(node.obj_token),
+          fetchDocRawContent(node.obj_token),
+        ]);
+
         if (!docInfo?.document?.markdown) continue;
 
         const markdown = docInfo.document.markdown;
+
+        // Download all images from this doc and build URL map
+        console.log(`🖼️ Downloading ${blocks.filter(b => b.block_type === 27).length} images for "${node.title}"...`);
+        const imageUrlMap = await buildImageUrlMap(blocks, node.obj_token);
+
+        // Build section -> images mapping
+        const sectionImageMap = buildSectionImageMap(blocks, imageUrlMap);
+
         const prompts = parseDocMarkdownToPrompts(
           markdown,
           node.title || '未命名',
           node.node_token,
-          node.obj_token
+          node.obj_token,
+          imageUrlMap,
+          sectionImageMap
         );
 
         for (const prompt of prompts) {
