@@ -110,44 +110,159 @@ async function renderSubNav(categoryId) {
 }
 
 // ── Home View ──────────────────────────────────────────────
+const CAT_COLORS = {
+  illustration: { bg: '#f5ede4', accent: '#c4956a', label: '#8b5e3c' },
+  poster:       { bg: '#f0e8f5', accent: '#9b6fc4', label: '#6b3fa0' },
+  arch:          { bg: '#e8f0f5', accent: '#5a9bbf', label: '#2d6a8a' },
+  meme:          { bg: '#f5f0e8', accent: '#c4a06a', label: '#8b6a2c' },
+  hanzi:        { bg: '#f5ede8', accent: '#c4785a', label: '#8b3c1c' },
+  playful:      { bg: '#f5f8e8', accent: '#8bc45a', label: '#4a7a1c' },
+  travel:       { bg: '#e8f5f0', accent: '#5ac4a0', label: '#2a7a5a' },
+  edu:          { bg: '#e8f5f5', accent: '#5ac4c4', label: '#2a7a7a' },
+  tech:         { bg: '#e8f0f8', accent: '#7a5ac4', label: '#4a2a8b' },
+  logo:         { bg: '#f0f5e8', accent: '#8ba05a', label: '#5a702a' },
+  effect:       { bg: '#f5e8e8', accent: '#c45a7a', label: '#8b2a4a' },
+  kawaii:       { bg: '#f8e8f5', accent: '#c47abf', label: '#8b4a7a' },
+  abstract:     { bg: '#f0e8f0', accent: '#9b5ac4', label: '#6b2a8b' },
+  landing:      { bg: '#e8f0f0', accent: '#5a8bc4', label: '#2a5a8b' },
+  other:        { bg: '#f0f0f0', accent: '#8a8a8a', label: '#4a4a4a' },
+};
+
+function getCatColors(catId) {
+  return CAT_COLORS[catId] || CAT_COLORS.other;
+}
+
+function truncate(text, maxLen) {
+  maxLen = maxLen || 120;
+  if (!text) return '';
+  var clean = text.replace(/[#*`_~]/g, '').replace(/\s+/g, ' ').trim();
+  if (clean.length <= maxLen) return clean;
+  return clean.slice(0, maxLen).replace(/\s+\S*$/, '') + '\u2026';
+}
+
 async function renderHomeView(categories) {
-  const homeSections = document.getElementById('homeSections');
+  var homeSections = document.getElementById('homeSections');
   homeSections.innerHTML = '';
   state.view = 'home';
+  state.currentPrompts = [];
   document.getElementById('homeView').hidden = false;
   document.getElementById('categoryView').hidden = true;
   document.querySelector('.layout').dataset.view = 'home';
 
-  for (const cat of categories.slice(0, 8)) {
-    if (!cat.id) continue;
-    try {
-      const data = await api(`/api/prompts?category=${cat.id}&limit=5&sort=updated_at`);
-      if (data.prompts.length === 0) continue;
+  // Stats strip
+  var promptCount = categories.reduce(function(s, c) { return s + (c.prompt_count || 0); }, 0);
+  var statsStrip = document.createElement('div');
+  statsStrip.className = 'home-stats';
+  statsStrip.innerHTML = '<div class="stats-inner">' +
+    '<span class="stat-item"><span class="stat-num">' + promptCount + '</span><span class="stat-label">\u6761\u63d0\u793a\u8bcd</span></span>' +
+    '<span class="stat-sep" aria-hidden="true">\u00b7</span>' +
+    '<span class="stat-item"><span class="stat-num">' + categories.length + '</span><span class="stat-label">\u4e2a\u5206\u7c7b</span></span>' +
+    '<span class="stat-sep" aria-hidden="true">\u00b7</span>' +
+    '<span class="stat-item"><span class="stat-label muted">\u70b9\u51fb\u5361\u7247\u67e5\u770b\u63d0\u793a\u8bcd\u8be6\u60c5</span></span>' +
+    '</div>';
+  homeSections.appendChild(statsStrip);
 
-      const section = document.createElement('div');
-      section.className = 'home-section';
-      section.dataset.cat = cat.id;
+  // Category pills
+  var pillsRow = document.createElement('div');
+  pillsRow.className = 'cat-pills';
+  var allBtn = document.createElement('button');
+  allBtn.className = 'cat-pill active';
+  allBtn.textContent = '\u5168\u90e8';
+  allBtn.dataset.cat = '';
+  allBtn.addEventListener('click', function() { filterMosaic(''); });
+  pillsRow.appendChild(allBtn);
+  categories.forEach(function(cat) {
+    var btn = document.createElement('button');
+    btn.className = 'cat-pill';
+    btn.textContent = cat.name;
+    btn.dataset.cat = cat.id;
+    btn.addEventListener('click', function() { filterMosaic(cat.id); });
+    pillsRow.appendChild(btn);
+  });
+  homeSections.appendChild(pillsRow);
 
-      section.innerHTML = `
-        <div class="home-section-head">
-          <h2>${cat.name}</h2>
-          <button class="home-view-all" data-cat="${cat.id}">查看全部 →</button>
-        </div>
-        <div class="home-section-row"></div>
-      `;
+  // Mosaic grid
+  var mosaicSection = document.createElement('div');
+  mosaicSection.className = 'home-mosaic-section';
+  var mosaicGrid = document.createElement('div');
+  mosaicGrid.className = 'mosaic-grid';
+  mosaicGrid.id = 'mosaicGrid';
 
-      section.querySelector('.home-view-all').addEventListener('click', () => {
-        navigateCategory(cat.id);
-      });
+  try {
+    var allPrompts = [];
+    var pp = 1, totalPages = 1;
+    do {
+      var pd = await api('/api/prompts?page=' + pp + '&limit=50');
+      allPrompts = allPrompts.concat(pd.prompts);
+      totalPages = (pd.pagination && pd.pagination.pages) ? pd.pagination.pages : 1;
+      pp++;
+    } while (pp <= totalPages);
 
-      const row = section.querySelector('.home-section-row');
-      data.prompts.forEach(p => row.appendChild(createHomeTile(p)));
+    state.currentPrompts = allPrompts;
 
-      homeSections.appendChild(section);
-    } catch (err) {
-      console.warn(`Failed to load category ${cat.id}:`, err);
-    }
+    var catMap = {};
+    categories.forEach(function(c) { catMap[c.id] = c.name; });
+
+    allPrompts.forEach(function(p, i) {
+      mosaicGrid.appendChild(createMosaicCard(p, i, catMap));
+    });
+  } catch(e) {
+    console.warn('Mosaic load failed:', e);
   }
+
+  mosaicSection.appendChild(mosaicGrid);
+  homeSections.appendChild(mosaicSection);
+}
+
+function filterMosaic(catId) {
+  document.querySelectorAll('.cat-pill').forEach(function(p) {
+    p.classList.toggle('active', p.dataset.cat === (catId || ''));
+  });
+  var cards = document.querySelectorAll('.mosaic-card');
+  cards.forEach(function(card) {
+    var match = !catId || card.dataset.cat === catId;
+    card.style.display = match ? '' : 'none';
+  });
+}
+
+function createMosaicCard(prompt, index, catMap) {
+  var card = document.createElement('article');
+  card.className = 'mosaic-card';
+  card.dataset.index = index;
+  card.dataset.cat = prompt.category_id || 'other';
+  card.setAttribute('role', 'button');
+  card.setAttribute('tabindex', '0');
+
+  var colors = getCatColors(prompt.category_id);
+  var ratio = prompt.ratio || '4 / 5';
+  var imgSrc = (prompt.image_url || (prompt.cover_url ? 'https://yhazrin.xyz' + prompt.cover_url : null)) || null;
+  var catName = catMap[prompt.category_id] || prompt.subcategory || '';
+  var title = prompt.title || '\u65e0\u6807\u9898';
+
+  var mediaHtml;
+  if (imgSrc) {
+    mediaHtml = '<img src="' + imgSrc + '" alt="' + title + '" loading="lazy" onerror="this.parentElement.classList.add(\x27img-error\x27)">' +
+      '<span class="mc-cat-badge" style="background:' + colors.accent + '">' + catName + '</span>';
+  } else {
+    mediaHtml = '<div class="mc-placeholder" style="background:' + colors.bg + '">' +
+      '<div class="mc-placeholder-inner">' +
+      '<span class="mc-cat-bar" style="background:' + colors.accent + '"></span>' +
+      '<p class="mc-text-preview">' + truncate(prompt.prompt_text, 110) + '</p>' +
+      '</div></div>';
+  }
+
+  card.innerHTML = '<div class="mc-media" style="aspect-ratio:' + ratio.replace('/', ' / ') + '">' + mediaHtml + '</div>' +
+    '<div class="mc-body">' +
+    '<h3 class="mc-title">' + title + '</h3>' +
+    (!imgSrc ? '<span class="mc-cat-label" style="color:' + colors.label + '">' + catName + '</span>' : '') +
+    '<div class="mc-meta">' +
+    '<span class="mc-ratio"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><rect x="0.5" y="0.5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-opacity=".4"/><rect x="1.5" y="1.5" width="7" height="7" rx="1" fill="currentColor" fill-opacity=".25"/></svg>' + ratio + '</span>' +
+    '</div></div>';
+
+  card.addEventListener('click', function() { openLightbox(index); });
+  card.addEventListener('keydown', function(e) { if (e.key === 'Enter') openLightbox(index); });
+
+  return card;
 }
 
 // ── Category View ─────────────────────────────────────────
