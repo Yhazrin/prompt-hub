@@ -260,7 +260,7 @@ function extractCoverUrl(markdown, imageTokens) {
 
 // Build section-to-image mapping based on block position in the document.
 // Image blocks that appear between section headers belong to that section.
-function buildSectionImageMap(blocks, imageUrlMap) {
+export function buildSectionImageMap(blocks, imageUrlMap) {
   const imageBlocks = extractImageBlocks(blocks);
   if (imageBlocks.length === 0) return [];
 
