@@ -2,20 +2,23 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Prompt Hub · AI 视觉灵感库</title>
   <meta name="description" content="AI 图片提示词灵感库，支持双向同步飞书知识库，每张图都配有可直接复制的 AI 提示词">
   <link rel="icon" type="image/svg+xml" href="/src/assets/logo.svg">
   <link rel="preconnect" href="https://images.unsplash.com">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/src/styles.css">
 </head>
 <body>
   <header class="topbar">
     <a class="brand" href="#" aria-label="Prompt Hub 首页">
       <svg class="brand-logo" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <rect width="40" height="40" rx="10" fill="#1a1a1a"/>
-        <path d="M12 20L18 26L28 14" stroke="#ffa8c5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-        <circle cx="20" cy="20" r="12" stroke="#ffa8c5" stroke-width="2" opacity="0.3"/>
+        <rect width="40" height="40" rx="12" fill="#101010"/>
+        <circle cx="20" cy="20" r="10" fill="#F5F1EA"/>
+        <circle cx="20" cy="20" r="5.5" fill="#101010"/>
       </svg>
       <span class="brand-name">Prompt Hub</span>
     </a>
@@ -65,8 +68,41 @@
     <main class="content">
       <div class="home" id="homeView">
         <div class="home-hero">
-          <h1>AI 视觉灵感库</h1>
-          <p>收藏提示词与生图效果，支持双向同步飞书知识库，每张图都配有可直接复制的 AI 提示词</p>
+          <div class="hero-grid">
+            <div class="hero-rail" aria-hidden="true">
+              <span class="hero-index">01</span>
+              <span class="hero-line"></span>
+            </div>
+
+            <div class="hero-copy">
+              <span class="hero-kicker">AI IMAGE ARCHIVE</span>
+              <h1>AI 视觉灵感库</h1>
+              <p>收藏提示词与生图效果，支持双向同步飞书知识库，每张图都配有可直接复制的 AI 提示词</p>
+              <button class="hero-link" id="heroExploreBtn" type="button">
+                探索灵感
+                <span aria-hidden="true">→</span>
+              </button>
+            </div>
+
+            <div class="hero-scene" aria-hidden="true">
+              <div class="hero-monogram">AI</div>
+              <div class="hero-orbit hero-orbit-a"></div>
+              <div class="hero-orbit hero-orbit-b"></div>
+              <div class="hero-plus hero-plus-a"></div>
+              <div class="hero-plus hero-plus-b"></div>
+              <div class="hero-plus hero-plus-c"></div>
+              <div class="hero-dots"></div>
+              <div class="hero-sculpture">
+                <span class="sculpture-shadow"></span>
+                <span class="sculpture-rock sculpture-rock-a"></span>
+                <span class="sculpture-rock sculpture-rock-b"></span>
+                <span class="sculpture-ribbon sculpture-ribbon-a"></span>
+                <span class="sculpture-ribbon sculpture-ribbon-b"></span>
+                <span class="sculpture-ribbon sculpture-ribbon-c"></span>
+              </div>
+              <div class="hero-side-label">EXPLORE · IMAGINE · CREATE</div>
+            </div>
+          </div>
         </div>
         <div class="home-sections" id="homeSections"></div>
       </div>
@@ -83,8 +119,9 @@
       <div class="footer-brand">
         <a class="footer-brand-mark" href="#">
           <svg viewBox="0 0 40 40" fill="none" width="28" height="28">
-            <rect width="40" height="40" rx="10" fill="#1a1a1a"/>
-            <path d="M12 20L18 26L28 14" stroke="#ffa8c5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            <rect width="40" height="40" rx="12" fill="#101010"/>
+            <circle cx="20" cy="20" r="10" fill="#F5F1EA"/>
+            <circle cx="20" cy="20" r="5.5" fill="#101010"/>
           </svg>
           <span class="footer-brand-name">Prompt Hub</span>
         </a>

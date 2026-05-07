@@ -252,7 +252,7 @@ function createHomeTile(prompt) {
   img.alt = prompt.title;
   img.loading = 'lazy';
   img.onload = () => tile.classList.add('is-loaded');
-  img.onerror = () => { tile.classList.add('is-loaded'); img.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><rect fill="%23131316" width="400" height="400"/><text fill="%2371717a" font-size="40" text-anchor="middle" x="200" y="200">No Image</text></svg>'; };
+  img.onerror = () => { tile.classList.add('is-loaded'); img.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><rect fill="%23f3efe8" width="400" height="400"/><text fill="%23857970" font-size="34" font-family="sans-serif" text-anchor="middle" x="200" y="208">No Image</text></svg>'; };
 
   tile.appendChild(img);
   tile.addEventListener('click', () => openLightbox(parseInt(tile.dataset.index)));
@@ -276,7 +276,7 @@ function createCard(prompt, index) {
   img.alt = prompt.title;
   img.loading = 'lazy';
   img.onload = () => card.classList.add('is-loaded');
-  img.onerror = () => { card.classList.add('is-loaded'); img.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect fill="%23131316" width="400" height="300"/><text fill="%2371717a" font-size="30" text-anchor="middle" x="200" y="150">No Image</text></svg>'; };
+  img.onerror = () => { card.classList.add('is-loaded'); img.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect fill="%23f3efe8" width="400" height="300"/><text fill="%23857970" font-size="28" font-family="sans-serif" text-anchor="middle" x="200" y="160">No Image</text></svg>'; };
 
   const overlay = document.createElement('div');
   overlay.className = 'card-overlay';
@@ -610,6 +610,9 @@ document.getElementById('searchInput').addEventListener('input', e => {
 // Refresh / sync
 document.getElementById('refreshBtn').addEventListener('click', triggerSync);
 document.getElementById('adminSyncBtn')?.addEventListener('click', triggerSync);
+document.getElementById('heroExploreBtn')?.addEventListener('click', () => {
+  document.getElementById('homeSections')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
 
 // Nav indicator on resize
 window.addEventListener('resize', () => {
