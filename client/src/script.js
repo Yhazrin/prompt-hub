@@ -41,7 +41,7 @@ async function init() {
     await updateSyncStatus();
   } catch (err) {
     console.error('Init failed:', err);
-    showToast('数据加载失败，请刷新页面');
+    showToast('数据加载失败，请刷新页面', 'error');
   }
 }
 
@@ -96,8 +96,8 @@ async function renderSubNav(categoryId) {
     subs.forEach(sub => {
       const li = document.createElement('li');
       const btn = document.createElement('button');
-      btn.textContent = sub.subcategory;
       btn.dataset.sub = sub.subcategory;
+      btn.innerHTML = '<span class="sub-name">' + sub.subcategory + '</span><span class="sub-count">' + sub.count + '</span>';
       btn.addEventListener('click', () => navigateSub(sub.subcategory));
       li.appendChild(btn);
       subNav.appendChild(li);
@@ -154,11 +154,11 @@ async function renderHomeView(categories) {
   var statsStrip = document.createElement('div');
   statsStrip.className = 'home-stats';
   statsStrip.innerHTML = '<div class="stats-inner">' +
-    '<span class="stat-item"><span class="stat-num">' + promptCount + '</span><span class="stat-label">\u6761\u63d0\u793a\u8bcd</span></span>' +
+    '<span class="stat-item"><svg class="stat-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="stat-num">' + promptCount + '</span><span class="stat-label">\u6761\u63d0\u793a\u8bcd</span></span>' +
     '<span class="stat-sep" aria-hidden="true">\u00b7</span>' +
-    '<span class="stat-item"><span class="stat-num">' + categories.length + '</span><span class="stat-label">\u4e2a\u5206\u7c7b</span></span>' +
+    '<span class="stat-item"><svg class="stat-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span class="stat-num">' + categories.length + '</span><span class="stat-label">\u4e2a\u5206\u7c7b</span></span>' +
     '<span class="stat-sep" aria-hidden="true">\u00b7</span>' +
-    '<span class="stat-item"><span class="stat-label muted">\u70b9\u51fb\u5361\u7247\u67e5\u770b\u63d0\u793a\u8bcd\u8be6\u60c5</span></span>' +
+    '<span class="stat-item hint"><svg class="stat-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 15l-2 5L9 9l11 4-5 2z"/><path d="M14.828 14.828L21 21"/></svg><span class="stat-label">\u70b9\u51fb\u5361\u7247\u67e5\u770b\u63d0\u793a\u8bcd \u00b7 \u6309 <kbd>/</kbd> \u641c\u7d22</span></span>' +
     '</div>';
   homeSections.appendChild(statsStrip);
 
@@ -176,6 +176,8 @@ async function renderHomeView(categories) {
     btn.className = 'cat-pill';
     btn.textContent = cat.name;
     btn.dataset.cat = cat.id;
+    var colors = getCatColors(cat.id);
+    btn.style.setProperty('--pill-accent', colors.accent);
     btn.addEventListener('click', function() { filterMosaic(cat.id); });
     pillsRow.appendChild(btn);
   });
@@ -234,6 +236,7 @@ function createMosaicCard(prompt, index, catMap) {
   card.setAttribute('tabindex', '0');
 
   var colors = getCatColors(prompt.category_id);
+  card.style.setProperty('--cat-accent', colors.accent);
   var ratio = prompt.ratio || '4 / 5';
   var imgSrc = (prompt.image_url || (prompt.cover_url ? 'https://yhazrin.xyz' + prompt.cover_url : null)) || null;
   var catName = catMap[prompt.category_id] || prompt.subcategory || '';
@@ -288,10 +291,14 @@ async function renderCategoryView(categoryId, subcategory = null) {
   document.querySelector('.layout').dataset.view = 'category';
 
   const cat = state.categories.find(c => c.id === categoryId);
+  const colors = getCatColors(categoryId);
   const header = document.getElementById('categoryHeader');
+  header.style.setProperty('--cat-accent', colors.accent);
+  header.style.setProperty('--cat-bg', colors.bg);
   header.innerHTML = `
+    <div class="cat-header-accent" style="background:${colors.accent}"></div>
     <h1>${cat?.name || categoryId}</h1>
-    <p>${cat?.description || ''} · 共 ${state.categories.find(c=>c.id===categoryId)?.prompt_count || 0} 条提示词</p>
+    <p>${cat?.description || ''} · 共 ${cat?.prompt_count || 0} 条提示词</p>
   `;
 
   await renderSubNav(categoryId);
@@ -301,7 +308,13 @@ async function renderCategoryView(categoryId, subcategory = null) {
 async function loadPrompts(categoryId, subcategory, page) {
   const grid = document.getElementById('grid');
   if (page === 1) {
-    grid.innerHTML = '<div class="empty-state"><p class="empty-state-text">加载中...</p></div>';
+    grid.innerHTML = '';
+    for (let i = 0; i < 8; i++) {
+      const skel = document.createElement('div');
+      skel.className = 'card skeleton-card';
+      skel.innerHTML = '<div class="skeleton-media"></div><div class="skeleton-body"><div class="skeleton-line skeleton-line-title"></div><div class="skeleton-line skeleton-line-short"></div></div>';
+      grid.appendChild(skel);
+    }
     state.currentPrompts = [];
   }
 
@@ -455,7 +468,24 @@ function openLightbox(index) {
 
   promptEl.textContent = prompt.prompt_text || prompt.title;
   counter.textContent = `${index + 1} / ${state.currentPrompts.length}`;
-  source.textContent = prompt.wiki_doc_title || '';
+
+  // Source link
+  if (prompt.source_url) {
+    source.innerHTML = '<a href="' + prompt.source_url + '" target="_blank" rel="noopener" class="lightbox-source-link">' + (prompt.wiki_doc_title || '来源') + '</a>';
+  } else {
+    source.textContent = prompt.wiki_doc_title || '';
+  }
+
+  // Tags
+  var tagsWrap = document.getElementById('lightboxTags');
+  if (prompt.tags) {
+    var tagList = prompt.tags.split(',').map(function(t) { return t.trim(); }).filter(Boolean);
+    tagsWrap.innerHTML = tagList.map(function(t) { return '<span class="lightbox-tag">' + t + '</span>'; }).join('');
+    tagsWrap.style.display = '';
+  } else {
+    tagsWrap.innerHTML = '';
+    tagsWrap.style.display = 'none';
+  }
 
   lightbox.hidden = false;
   lightbox.dataset.open = 'true';
@@ -560,20 +590,20 @@ async function triggerSync() {
   const label = document.getElementById('syncLabel');
   dot.className = 'sync-dot syncing';
   label.textContent = '同步中...';
-  showToast('开始同步飞书知识库...');
+  showToast('开始同步飞书知识库...', 'info');
 
   try {
     const result = await fetch(ADMIN + '/sync', { method: 'POST' }).then(r => r.json());
     if (result.success) {
-      showToast(`同步完成: ${result.syncedCount} 条提示词`);
+      showToast(`同步完成: ${result.syncedCount} 条提示词`, 'success');
       // Reload data
       await init();
     } else {
-      showToast('同步失败: ' + result.error);
+      showToast('同步失败: ' + result.error, 'error');
       dot.className = 'sync-dot error';
     }
   } catch (err) {
-    showToast('同步请求失败');
+    showToast('同步请求失败', 'error');
     dot.className = 'sync-dot error';
   }
 
@@ -610,7 +640,10 @@ async function doSearch(query) {
     results.slice(0, 8).forEach(p => {
       const item = document.createElement('div');
       item.className = 'search-result-item';
+      const colors = getCatColors(p.category_id);
+      item.style.setProperty('--sr-accent', colors.accent);
       item.innerHTML = `
+        <div class="search-result-color" style="background:${colors.accent}"></div>
         <img class="search-result-thumb" src="${(p.cover_url || p.image_url || `https://picsum.photos/seed/${p.id}/100/100`)}" alt="" loading="lazy">
         <div class="search-result-text">
           <div class="search-result-title">${p.title}</div>
@@ -667,10 +700,10 @@ function copyToClipboard(text) {
   });
 }
 
-function showToast(message) {
+function showToast(message, type = 'info') {
   const toast = document.getElementById('toast');
   toast.textContent = message;
-  toast.classList.add('show');
+  toast.className = 'toast show' + (type !== 'info' ? ' toast-' + type : '');
   setTimeout(() => toast.classList.remove('show'), 2500);
 }
 
@@ -697,7 +730,7 @@ document.getElementById('lightboxCopy').addEventListener('click', () => {
   const p = state.currentPrompts[state.lightboxIndex];
   if (p) {
     copyToClipboard(p.prompt_text);
-    showToast('提示词已复制');
+    showToast('提示词已复制', 'success');
   }
 });
 
@@ -741,6 +774,25 @@ document.getElementById('heroExploreBtn')?.addEventListener('click', () => {
 window.addEventListener('resize', () => {
   const active = document.querySelector('.primary-nav button.active');
   if (active) updateNavIndicator(active);
+});
+
+// Scroll to top
+const scrollTopBtn = document.getElementById('scrollTop');
+window.addEventListener('scroll', () => {
+  scrollTopBtn.hidden = window.scrollY < 400;
+}, { passive: true });
+scrollTopBtn.addEventListener('click', () => {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+// Keyboard shortcut: / to open search
+document.addEventListener('keydown', e => {
+  if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    const tag = document.activeElement?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
+    e.preventDefault();
+    openSearch();
+  }
 });
 
 // ── Boot ──────────────────────────────────────────────────
