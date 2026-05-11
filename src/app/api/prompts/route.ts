@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPrompts, getCategories } from '@server/database.mjs';
+import { withCache } from '@/lib/api-cache';
 
 export async function GET(req: NextRequest) {
   try {
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
       category_name: cats.find(c => c.id === p.category_id)?.name || p.category_id,
     }));
 
-    return NextResponse.json(result);
+    return withCache(result, 60, 300);
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

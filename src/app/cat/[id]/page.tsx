@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useMemo, use } from 'react';
-import { usePrompts } from '@/hooks/usePrompts';
+import { useState, useMemo, useCallback, use } from 'react';
+import useSWR from 'swr';
+import useSWRInfinite from 'swr/infinite';
+import { fetcher, swrKeys } from '@/lib/api';
 import { useCategories } from '@/hooks/useCategories';
 import { useGalleryBatch } from '@/hooks/useGallery';
 import { useLightbox } from '@/hooks/useLightbox';
@@ -13,19 +15,42 @@ import { Footer } from '@/components/Footer';
 import { motion } from 'framer-motion';
 import { fadeSlide, spring } from '@/lib/animations';
 import { getCatColors } from '@/lib/utils';
-import useSWR from 'swr';
-import { swrKeys, fetcher } from '@/lib/api';
-import type { Subcategory } from '@/lib/types';
+import type { Subcategory, PromptsResponse } from '@/lib/types';
+
+const PAGE_SIZE = 30;
 
 export default function CategoryPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [activeSub, setActiveSub] = useState<string | null>(null);
   const { categories } = useCategories();
-  const { prompts, isLoading } = usePrompts({
-    category: id,
-    sub: activeSub || undefined,
-    limit: 200,
+
+  const getKey = useCallback((pageIndex: number, previousPageData: PromptsResponse | null) => {
+    if (previousPageData && previousPageData.prompts.length < PAGE_SIZE) return null;
+    const p: Record<string, string> = { category: id, limit: String(PAGE_SIZE), page: String(pageIndex + 1) };
+    if (activeSub) p.sub = activeSub;
+    return `/api/prompts?${new URLSearchParams(p).toString()}`;
+  }, [id, activeSub]);
+
+  const {
+    data,
+    isLoading,
+    size,
+    setSize,
+  } = useSWRInfinite<PromptsResponse>(getKey, fetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 5000,
+    revalidateFirstPage: false,
   });
+
+  const prompts = data ? data.flatMap(page => page.prompts) : [];
+  const isLoadingMore = isLoading || (size > 0 && data && typeof data[size - 1] === 'undefined');
+  const isEmpty = data?.[0]?.prompts.length === 0;
+  const isReachingEnd = isEmpty || (data && data[data.length - 1]?.prompts.length < PAGE_SIZE);
+
+  const handleLoadMore = useCallback(() => {
+    if (!isLoadingMore && !isReachingEnd) setSize(size + 1);
+  }, [size, setSize, isLoadingMore, isReachingEnd]);
+
   const { galleryMap } = useGalleryBatch(prompts.map(p => p.id));
   const { activePrompt, open, close } = useLightbox();
 
@@ -74,7 +99,7 @@ export default function CategoryPage({ params }: { params: Promise<{ id: string 
               variants={fadeSlide}
               transition={spring.gentle}
             >
-              {prompts.length} 个提示词
+              {data?.[0]?.pagination.total ?? 0} 个提示词
             </motion.p>
           </motion.div>
         </section>
@@ -118,7 +143,10 @@ export default function CategoryPage({ params }: { params: Promise<{ id: string 
           <MosaicGrid
             prompts={prompts}
             galleryMap={galleryMap}
-            isLoading={isLoading}
+            isLoading={isLoading && !data}
+            isLoadingMore={isLoadingMore}
+            isReachingEnd={isReachingEnd}
+            onLoadMore={handleLoadMore}
             onOpenLightbox={open}
           />
         </section>

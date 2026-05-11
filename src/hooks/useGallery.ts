@@ -19,12 +19,12 @@ export function useGallery(promptId: string | null) {
   };
 }
 
-export function useGalleryBatch(ids: string[]) {
+export function useGalleryBatch(ids: string[], initialData?: Record<string, GalleryImage[]>) {
   const key = ids.length > 0 ? swrKeys.galleryBatch(ids) : null;
   const { data, error, isLoading } = useSWR<Record<string, GalleryImage[]>>(
     key,
     fetcher,
-    { revalidateOnFocus: false, dedupingInterval: 10000 }
+    { revalidateOnFocus: false, dedupingInterval: 10000, fallbackData: initialData }
   );
 
   return {

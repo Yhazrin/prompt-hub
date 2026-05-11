@@ -3,6 +3,7 @@ import { createServer } from 'http';
 import { parse } from 'url';
 import { createReadStream, existsSync, statSync } from 'fs';
 import { join, extname } from 'path';
+import { createGzip, createDeflate } from 'zlib';
 import next from 'next';
 import { loadData } from './lib/database.mjs';
 import { startSyncScheduler } from './lib/scheduler.mjs';
@@ -22,15 +23,20 @@ const MIME_TYPES = {
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
-function serveStaticFile(res, filePath) {
+function serveStaticFile(req, res, filePath) {
   const stat = statSync(filePath);
   const ext = extname(filePath).toLowerCase();
   const mime = MIME_TYPES[ext] || 'application/octet-stream';
-  res.writeHead(200, {
+  const acceptEncoding = req.headers['accept-encoding'] || '';
+
+  const headers = {
     'Content-Type': mime,
     'Content-Length': stat.size,
     'Cache-Control': 'public, max-age=31536000, immutable',
-  });
+  };
+
+  // Images are already compressed (JPEG/PNG), no benefit from gzip
+  res.writeHead(200, headers);
   createReadStream(filePath).pipe(res);
 }
 
@@ -43,7 +49,7 @@ app.prepare().then(() => {
   startSyncScheduler();
   console.log('✅ Sync scheduler started');
 
-  // Create HTTP server
+  // Create HTTP server with gzip compression for JSON/text responses
   createServer(async (req, res) => {
     try {
       const parsedUrl = parse(req.url, true);
@@ -53,7 +59,7 @@ app.prepare().then(() => {
       if (pathname.startsWith('/images/') && !pathname.startsWith('/images/gallery/')) {
         const filePath = join(IMAGE_DIR, pathname.slice('/images/'.length));
         if (existsSync(filePath)) {
-          serveStaticFile(res, filePath);
+          serveStaticFile(req, res, filePath);
           return;
         }
       }
@@ -62,11 +68,12 @@ app.prepare().then(() => {
       if (pathname.startsWith('/images/gallery/')) {
         const filePath = join(GALLERY_DIR, pathname.slice('/images/gallery/'.length));
         if (existsSync(filePath)) {
-          serveStaticFile(res, filePath);
+          serveStaticFile(req, res, filePath);
           return;
         }
       }
 
+      // Next.js handles compression via compress: true (default)
       await handle(req, res, parsedUrl);
     } catch (err) {
       console.error('Error handling request:', err);

@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Gzip compression for all Next.js responses (API + pages)
+  compress: true,
   // Serve static images from /images/ (nginx proxy in production)
   images: {
     remotePatterns: [

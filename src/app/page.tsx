@@ -1,62 +1,20 @@
-'use client';
+import { getPrompts, getCategories, getGalleryImagesBatch } from '@server/database.mjs';
+import { HomeClient } from '@/components/HomeClient';
 
-import { useState, useMemo } from 'react';
-import { usePrompts } from '@/hooks/usePrompts';
-import { useCategories } from '@/hooks/useCategories';
-import { useGalleryBatch } from '@/hooks/useGallery';
-import { useLightbox } from '@/hooks/useLightbox';
-import { Topbar } from '@/components/Topbar';
-import { Hero } from '@/components/Hero';
-import { CategoryPills } from '@/components/CategoryPills';
-import { MosaicGrid } from '@/components/MosaicGrid';
-import { Lightbox } from '@/components/Lightbox';
-import { Footer } from '@/components/Footer';
+// ISR: revalidate every 60s — data only changes on sync
+export const revalidate = 60;
 
 export default function HomePage() {
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const { categories } = useCategories();
-  const { prompts, isLoading } = usePrompts({
-    category: activeCategory || undefined,
-    limit: 200,
-  });
-  const { galleryMap } = useGalleryBatch(prompts.map(p => p.id));
-  const { activePrompt, open, close } = useLightbox();
-
-  const stats = useMemo(() => ({
-    total: categories.reduce((s, c) => s + c.prompt_count, 0),
-    categories: categories.length,
-  }), [categories]);
+  // Server-side data prefetch — no client waterfall
+  const promptsData = getPrompts({ limit: 30 });
+  const categories = getCategories();
+  const galleryMap = getGalleryImagesBatch(promptsData.prompts.map(p => p.id));
 
   return (
-    <>
-      <Topbar onSearchSelect={open} />
-
-      <main className="min-h-screen">
-        <Hero total={stats.total} categories={stats.categories} />
-
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 pb-12">
-          {/* Category pills */}
-          <div className="mb-8">
-            <CategoryPills
-              categories={categories}
-              activeId={activeCategory}
-              onSelect={setActiveCategory}
-            />
-          </div>
-
-          {/* Grid */}
-          <MosaicGrid
-            prompts={prompts}
-            galleryMap={galleryMap}
-            isLoading={isLoading}
-            onOpenLightbox={open}
-          />
-        </section>
-
-        <Footer />
-      </main>
-
-      <Lightbox prompt={activePrompt} onClose={close} />
-    </>
+    <HomeClient
+      initialPrompts={promptsData}
+      initialCategories={categories}
+      initialGallery={galleryMap}
+    />
   );
 }

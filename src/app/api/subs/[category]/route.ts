@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSubs } from '@server/database.mjs';
+import { withCache } from '@/lib/api-cache';
 
 export async function GET(
   req: NextRequest,
@@ -7,7 +8,7 @@ export async function GET(
 ) {
   try {
     const { category } = await params;
-    return NextResponse.json(getSubs(category));
+    return withCache(getSubs(category), 60, 300);
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
