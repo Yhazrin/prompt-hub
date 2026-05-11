@@ -117,6 +117,55 @@ export function getStats() {
   };
 }
 
+export function getGalleryImages(promptId) {
+  const prompt = data.prompts.find(p => p.id === promptId);
+  if (!prompt) return [];
+  if (!prompt.gallery_images) { prompt.gallery_images = []; saveData(); }
+  return prompt.gallery_images;
+}
+
+export function addGalleryImage(promptId, imageEntry) {
+  const prompt = data.prompts.find(p => p.id === promptId);
+  if (!prompt) throw new Error('Prompt not found');
+  if (!prompt.gallery_images) prompt.gallery_images = [];
+  prompt.gallery_images.push(imageEntry);
+  prompt.updated_at = Date.now();
+  saveData();
+  return imageEntry;
+}
+
+export function deleteGalleryImage(promptId, imageId) {
+  const prompt = data.prompts.find(p => p.id === promptId);
+  if (!prompt || !prompt.gallery_images) return false;
+  const idx = prompt.gallery_images.findIndex(i => i.id === imageId);
+  if (idx < 0) return false;
+  prompt.gallery_images.splice(idx, 1);
+  prompt.updated_at = Date.now();
+  saveData();
+  return true;
+}
+
+export function markGalleryImageSynced(promptId, imageId, feishuBlockId, feishuToken) {
+  const prompt = data.prompts.find(p => p.id === promptId);
+  if (!prompt || !prompt.gallery_images) return;
+  const img = prompt.gallery_images.find(i => i.id === imageId);
+  if (img) {
+    img.synced = true;
+    img.feishu_block_id = feishuBlockId;
+    img.feishu_token = feishuToken;
+    prompt.updated_at = Date.now();
+    saveData();
+  }
+}
+
+export function updatePromptField(promptId, field, value) {
+  const prompt = data.prompts.find(p => p.id === promptId);
+  if (!prompt) return;
+  prompt[field] = value;
+  prompt.updated_at = Date.now();
+  saveData();
+}
+
 export function addSyncLog(syncType, status, itemsSynced = 0, errors = []) {
   const entry = {
     id: log.length + 1, sync_type: syncType, status, items_synced: itemsSynced,

@@ -150,6 +150,80 @@ export function getLocalImageUrl(token) {
 }
 
 // Download a feishu image token and save to local file
+// Upload a local image file to Feishu and return the image token
+export async function uploadImageToFeishu(localFilePath) {
+  const tk = await getAppAccessToken();
+  if (!tk) throw new Error('No Feishu access token');
+
+  const { default: fs } = await import('fs');
+  const fileBuffer = fs.readFileSync(localFilePath);
+  const fileName = path.basename(localFilePath);
+  const { Readable } = await import('stream');
+
+  try {
+    const formData = new (await import('form-data')).default();
+    const stream = Readable.from(fileBuffer);
+    formData.append('file', stream, {
+      filename: fileName,
+      knownLength: fileBuffer.length,
+      contentType: 'image/jpeg',
+    });
+    formData.append('file_name', fileName);
+    formData.append('parent_type', 'docx_image');
+    formData.append('size', String(fileBuffer.length));
+
+    const resp = await axios.post('https://open.feishu.cn/open-apis/im/v1/images', formData, {
+      headers: {
+        ...formData.getHeaders(),
+        Authorization: `Bearer ${tk}`,
+      },
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity,
+    });
+
+    if (resp.data.code !== 0) throw new Error(`Feishu upload error: ${resp.data.msg}`);
+    return resp.data.data.image_key; // the token
+  } catch (err) {
+    console.warn('uploadImageToFeishu error:', err.message);
+    throw err;
+  }
+}
+
+// Append an image block to a Feishu document
+export async function appendImageBlockToDoc(objToken, imageToken, width = 600, height = 400) {
+  const tk = await getAppAccessToken();
+  if (!tk) throw new Error('No Feishu access token');
+
+  try {
+    const resp = await axios.patch(
+      `https://open.feishu.cn/open-apis/docx/v1/documents/${objToken}/blocks/${objToken}/children`,
+      {
+        children: [{
+          block_type: 27,
+          image: {
+            token: imageToken,
+            width,
+            height,
+          },
+        }],
+        index: -1, // append at end
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${tk}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (resp.data.code !== 0) throw new Error(`appendImageBlock error: ${resp.data.msg}`);
+    return resp.data.data?.blocks?.[0]?.block_id || null;
+  } catch (err) {
+    console.warn('appendImageBlockToDoc error:', err.message);
+    throw err;
+  }
+}
+
 export async function downloadImage(token) {
   if (!token) return null;
   // Check if already downloaded

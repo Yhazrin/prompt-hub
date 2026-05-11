@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import apiRouter from './routes/api.js';
 import adminRouter from './routes/admin.js';
@@ -18,6 +19,11 @@ app.use(express.json());
 
 // Serve static client files
 app.use(express.static(path.join(__dirname, '../client')));
+
+// Serve gallery images
+const GALLERY_DIR = process.env.GALLERY_DIR || path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), '../images/gallery');
+if (!fs.existsSync(GALLERY_DIR)) fs.mkdirSync(GALLERY_DIR, { recursive: true });
+app.use('/images/gallery', express.static(GALLERY_DIR));
 
 // API routes
 app.use('/api', apiRouter);

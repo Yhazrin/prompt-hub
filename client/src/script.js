@@ -518,6 +518,9 @@ function openLightbox(index) {
   // Update nav buttons
   document.getElementById('lightboxPrev').disabled = index === 0;
   document.getElementById('lightboxNext').disabled = index === state.currentPrompts.length - 1;
+
+  // Render gallery
+  renderGallery(prompt.id);
 }
 
 function closeLightbox() {
@@ -837,6 +840,125 @@ document.getElementById('refreshBtn').addEventListener('click', triggerSync);
 document.getElementById('adminSyncBtn')?.addEventListener('click', triggerSync);
 document.getElementById('heroExploreBtn')?.addEventListener('click', () => {
   document.getElementById('homeSections')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+// ── Gallery ───────────────────────────────────────────────
+async function renderGallery(promptId) {
+  const grid = document.getElementById('galleryGrid');
+  const uploadBtn = document.getElementById('galleryUploadBtn');
+  const uploadInput = document.getElementById('galleryUploadInput');
+  if (!grid) return;
+
+  // Wire upload button → file input
+  if (uploadBtn && uploadInput) {
+    uploadBtn.onclick = () => uploadInput.click();
+  }
+
+  try {
+    const images = await api('/api/prompts/' + promptId + '/gallery');
+    renderGalleryGrid(grid, images, promptId);
+  } catch (err) {
+    grid.innerHTML = '<div class="gallery-empty">加载失败</div>';
+  }
+}
+
+function renderGalleryGrid(grid, images, promptId) {
+  if (!images || images.length === 0) {
+    grid.innerHTML = '<div class="gallery-empty">还没有实战图片，成为第一个上传者！</div>';
+    return;
+  }
+  grid.innerHTML = images.map(img => {
+    const syncedBadge = img.synced
+      ? '<div class="gallery-item-synced-badge"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>'
+      : '';
+    return '<div class="gallery-item" data-id="' + img.id + '" data-url="' + img.url + '">' +
+      '<img src="' + img.url + '" alt="实战图片" loading="lazy"/>' +
+      syncedBadge +
+      '<div class="gallery-item-overlay">' +
+        (!img.synced
+          ? '<button class="gallery-item-btn sync-btn" title="同步到飞书" data-action="sync"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>'
+          : '') +
+        '<button class="gallery-item-btn delete-btn" title="删除" data-action="delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  // Click on image → open in new tab
+  grid.querySelectorAll('.gallery-item').forEach(item => {
+    item.addEventListener('click', e => {
+      const action = e.target.closest('[data-action]')?.dataset.action;
+      const id = item.dataset.id;
+      const url = item.dataset.url;
+      if (action === 'sync') {
+        e.stopPropagation();
+        syncGalleryImage(promptId, id, item);
+      } else if (action === 'delete') {
+        e.stopPropagation();
+        deleteGalleryImage(promptId, id, item);
+      } else {
+        window.open(url, '_blank', 'noopener');
+      }
+    });
+  });
+}
+
+async function syncGalleryImage(promptId, imageId, itemEl) {
+  const btn = itemEl.querySelector('[data-action="sync"]');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 4v6h-6M1 20v-6h6"/></svg>'; }
+  try {
+    const result = await api('/api/prompts/' + promptId + '/gallery/' + imageId + '/sync', { method: 'POST' });
+    showToast('已同步到飞书文档', 'success');
+    // Refresh gallery to show synced badge
+    await renderGallery(promptId);
+  } catch (err) {
+    showToast('同步失败: ' + (err.message || '未知错误'), 'error');
+    if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>'; }
+  }
+}
+
+async function deleteGalleryImage(promptId, imageId, itemEl) {
+  if (!confirm('确定删除这张图片？')) return;
+  try {
+    await api('/api/prompts/' + promptId + '/gallery/' + imageId, { method: 'DELETE' });
+    itemEl.remove();
+    showToast('已删除');
+    // Re-render in case grid is now empty
+    await renderGallery(promptId);
+  } catch (err) {
+    showToast('删除失败', 'error');
+  }
+}
+
+// Upload input change handler — set up once
+document.getElementById('galleryUploadInput')?.addEventListener('change', async function () {
+  const file = this.files && this.files[0];
+  if (!file) return;
+  this.value = ''; // reset so same file can be re-selected
+
+  const prompt = state.currentPrompts[state.lightboxIndex];
+  if (!prompt) return;
+
+  const grid = document.getElementById('galleryGrid');
+  const origHtml = grid.innerHTML;
+  grid.innerHTML = '<div class="gallery-uploading"><svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 4v6h-6M1 20v-6h6"/></svg>上传中...</div>';
+
+  const formData = new FormData();
+  formData.append('image', file);
+
+  try {
+    await fetch('/api/prompts/' + prompt.id + '/gallery', {
+      method: 'POST',
+      body: formData,
+    }).then(async r => {
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    });
+    showToast('上传成功', 'success');
+    await renderGallery(prompt.id);
+  } catch (err) {
+    showToast('上传失败', 'error');
+    grid.innerHTML = origHtml;
+  }
 });
 
 // Nav indicator on resize
