@@ -37,11 +37,11 @@ export function Hero({ total, categories }: HeroProps) {
         variants={fadeSlide}
         transition={spring.gentle}
       >
-        <div className="glass noise rounded-full px-5 py-2.5 flex items-center gap-2">
+        <div className="glass rounded-full px-5 py-2.5 flex items-center gap-2">
           <span className="text-2xl font-bold text-[var(--color-accent)]">{total}</span>
           <span className="text-sm text-[var(--color-text-secondary)]">提示词</span>
         </div>
-        <div className="glass noise rounded-full px-5 py-2.5 flex items-center gap-2">
+        <div className="glass rounded-full px-5 py-2.5 flex items-center gap-2">
           <span className="text-2xl font-bold text-[var(--color-accent)]">{categories}</span>
           <span className="text-sm text-[var(--color-text-secondary)]">分类</span>
         </div>

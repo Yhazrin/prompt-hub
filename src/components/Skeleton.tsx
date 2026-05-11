@@ -17,7 +17,7 @@ export function MosaicSkeleton({ count = 12 }: { count?: number }) {
           variants={staggerItem}
           className="mb-5 break-inside-avoid"
         >
-          <div className="glass noise rounded-[20px] overflow-hidden">
+          <div className="glass rounded-[20px] overflow-hidden">
             {/* Image skeleton */}
             <div
               className="skeleton w-full"

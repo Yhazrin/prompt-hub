@@ -8,7 +8,7 @@ export function Footer() {
   const { categories } = useCategories();
 
   return (
-    <footer className="glass noise mt-20">
+    <footer className="glass mt-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
         <div className="flex flex-col items-center gap-6">
           <div className="flex items-center gap-2">

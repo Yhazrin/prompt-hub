@@ -51,7 +51,7 @@ export function MosaicGrid({
   if (prompts.length === 0) {
     return (
       <div className="text-center py-20">
-        <div className="glass noise rounded-[20px] inline-block px-8 py-6">
+        <div className="glass rounded-[20px] inline-block px-8 py-6">
           <p className="text-[var(--color-text-secondary)]">暂无提示词</p>
         </div>
       </div>

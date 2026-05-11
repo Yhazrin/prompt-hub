@@ -36,7 +36,7 @@ export default function CategoryLoading() {
         <div className="mosaic-grid">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="mb-5 break-inside-avoid">
-              <div className="glass noise rounded-[20px] overflow-hidden">
+              <div className="glass rounded-[20px] overflow-hidden">
                 <div className="skeleton w-full" style={{ aspectRatio: ['4/5', '3/4', '16/9', '1/1'][i % 4] }} />
                 <div className="p-4 space-y-3">
                   <div className="skeleton h-4 w-3/4 rounded-full" />

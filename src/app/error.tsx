@@ -9,7 +9,7 @@ export default function Error({
 }) {
   return (
     <main className="min-h-screen flex items-center justify-center px-4">
-      <div className="glass noise rounded-[24px] p-8 text-center max-w-md">
+      <div className="glass rounded-[24px] p-8 text-center max-w-md">
         <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-error)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10" />

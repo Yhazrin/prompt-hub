@@ -34,7 +34,7 @@ export default function AdminPage() {
         <h1 className="text-2xl font-bold text-[var(--color-text)] mb-8">管理面板</h1>
 
         {/* Sync section */}
-        <div className="glass noise rounded-[20px] p-6 mb-6">
+        <div className="glass rounded-[20px] p-6 mb-6">
           <h2 className="text-lg font-semibold text-[var(--color-text)] mb-4">飞书同步</h2>
 
           <div className="flex items-center gap-4 mb-4">
@@ -116,7 +116,7 @@ export default function AdminPage() {
         </div>
 
         {/* Sync log */}
-        <div className="glass noise rounded-[20px] p-6">
+        <div className="glass rounded-[20px] p-6">
           <h2 className="text-lg font-semibold text-[var(--color-text)] mb-4">同步日志</h2>
 
           {syncLog && syncLog.length > 0 ? (

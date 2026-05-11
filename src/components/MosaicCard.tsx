@@ -30,22 +30,16 @@ export function MosaicCard({ prompt, gallery, onOpen, index }: MosaicCardProps) 
       layout
     >
       <motion.article
-        className="glass noise rounded-[20px] overflow-hidden group relative"
+        className="glass rounded-[20px] overflow-hidden group relative"
         onHoverStart={() => setHovered(true)}
         onHoverEnd={() => setHovered(false)}
-        whileHover={{ y: -4, boxShadow: '0 12px 40px rgba(0,0,0,0.08)' }}
+        whileHover={{ y: -4, boxShadow: '0 12px 40px rgba(0,0,0,0.1), 0 4px 12px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.6)' }}
         transition={spring.gentle}
         onClick={() => onOpen(prompt)}
         role="button"
         tabIndex={0}
         onKeyDown={e => { if (e.key === 'Enter') onOpen(prompt); }}
       >
-        {/* Category color strip */}
-        <div
-          className={`h-[3px] cat-strip-${prompt.category_id}`}
-          style={{ background: colors.accent }}
-        />
-
         {/* Image */}
         {hasImage && (
           <div className="relative overflow-hidden" style={{ aspectRatio: ratio }}>

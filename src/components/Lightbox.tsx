@@ -64,7 +64,7 @@ export function Lightbox({ prompt, onClose }: LightboxProps) {
 
           {/* Content */}
           <motion.div
-            className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto glass-strong noise rounded-[24px] shadow-[var(--shadow-glass-lg)]"
+            className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto glass-strong rounded-[24px]"
             variants={fadeSlide}
             transition={spring.snappy}
             onClick={e => e.stopPropagation()}

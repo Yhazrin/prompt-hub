@@ -60,7 +60,7 @@ export function SearchBar({ onSelect }: SearchBarProps) {
       <AnimatePresence>
         {showDropdown && (
           <motion.div
-            className="absolute top-full left-0 right-0 mt-2 glass-strong noise rounded-[16px] shadow-[var(--shadow-glass-lg)] overflow-hidden max-h-[400px] overflow-y-auto z-50"
+            className="absolute top-full left-0 right-0 mt-2 glass-strong rounded-[16px] overflow-hidden max-h-[400px] overflow-y-auto z-50"
             variants={fadeSlide}
             initial="initial"
             animate="animate"

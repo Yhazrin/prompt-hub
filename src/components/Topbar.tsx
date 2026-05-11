@@ -12,7 +12,7 @@ interface TopbarProps {
 export function Topbar({ onSearchSelect }: TopbarProps) {
   return (
     <header className="fixed top-0 left-0 right-0 z-50">
-      <div className="glass-strong noise">
+      <div className="glass-strong">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5 shrink-0">
