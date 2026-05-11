@@ -938,6 +938,10 @@ document.getElementById('galleryUploadInput')?.addEventListener('change', async 
   const prompt = state.currentPrompts[state.lightboxIndex];
   if (!prompt) return;
 
+  // Check if current cover is a mock (no real image from Feishu)
+  const coverUrl = prompt.cover_url || prompt.image_url || '';
+  const isMockCover = !coverUrl || coverUrl.includes('picsum.photos');
+
   const grid = document.getElementById('galleryGrid');
   const origHtml = grid.innerHTML;
   grid.innerHTML = '<div class="gallery-uploading"><svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 4v6h-6M1 20v-6h6"/></svg>上传中...</div>';
@@ -946,15 +950,29 @@ document.getElementById('galleryUploadInput')?.addEventListener('change', async 
   formData.append('image', file);
 
   try {
-    await fetch('/api/prompts/' + prompt.id + '/gallery', {
+    const result = await fetch('/api/prompts/' + prompt.id + '/gallery', {
       method: 'POST',
       body: formData,
     }).then(async r => {
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     });
+
+    const newImg = result.image;
     showToast('上传成功', 'success');
     await renderGallery(prompt.id);
+
+    // Auto-sync to Feishu if current cover is a mock (Feishu doc has no real images yet)
+    if (isMockCover && newImg && prompt.wiki_obj_token) {
+      showToast('当前为 mock 封面，开始同步到飞书文档...', 'info');
+      try {
+        await api('/api/prompts/' + prompt.id + '/gallery/' + newImg.id + '/sync', { method: 'POST' });
+        showToast('已同步到飞书文档', 'success');
+      } catch (err) {
+        showToast('同步到飞书失败，可稍后手动重试', 'error');
+      }
+      await renderGallery(prompt.id);
+    }
   } catch (err) {
     showToast('上传失败', 'error');
     grid.innerHTML = origHtml;
