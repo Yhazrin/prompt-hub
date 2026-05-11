@@ -1,43 +1,6 @@
 {
   "prompts": [
     {
-      "id": "doc_meme_001",
-      "category_id": "meme",
-      "title": "Meme 极简抽象海报",
-      "prompt_text": "将任意输入图重绘为白底超极简抽象 meme 海报...",
-      "ratio": "4/5",
-      "subcategory": "Meme 海报",
-      "wiki_doc_title": "Meme 提示词 - 极简抽象海报",
-      "source_url": "https://x.com/ewind_dev/status/2051473416251900408",
-      "sync_status": "synced",
-      "created_at": 1746547200,
-      "updated_at": 1746547200
-    },
-    {
-      "id": "doc_hanzi_001",
-      "category_id": "hanzi",
-      "title": "汉字意象徽记 Hanzi Emblem",
-      "prompt_text": "请根据用户输入的【主题】【品牌名】【风格方向】创作汉字意象徽记...",
-      "ratio": "4/5",
-      "subcategory": "汉字图形",
-      "wiki_doc_title": "汉字意象徽记 - Hanzi Emblem Marks",
-      "sync_status": "synced",
-      "created_at": 1746547200,
-      "updated_at": 1746547200
-    },
-    {
-      "id": "doc_playful_001",
-      "category_id": "playful",
-      "title": "趣味图形标志 Playful Graphic Marks",
-      "prompt_text": "创作一张高完成度的「趣味图形标志」风格 logo 展示图...",
-      "ratio": "4/5",
-      "subcategory": "趣味logo",
-      "wiki_doc_title": "趣味图形标志 - Playful Graphic Marks",
-      "sync_status": "synced",
-      "created_at": 1746547200,
-      "updated_at": 1746547200
-    },
-    {
       "id": "doc_riso_001",
       "category_id": "illustration",
       "title": "Minimal Illustration / Risograph Print Style",

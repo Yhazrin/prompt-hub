@@ -107,6 +107,15 @@ export function upsertCategory({ id, name, description = '', sort_order = 99 }) 
   saveData();
 }
 
+export function deleteCategory(categoryId) {
+  data.categories = data.categories.filter(c => c.id !== categoryId);
+  // Also remove prompts in this category
+  const before = data.prompts.length;
+  data.prompts = data.prompts.filter(p => p.category_id !== categoryId);
+  saveData();
+  console.log(`Deleted category "${categoryId}" and ${before - data.prompts.length} prompts`);
+}
+
 export function getStats() {
   return {
     total: data.prompts.filter(p => p.prompt_text).length,

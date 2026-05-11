@@ -1,86 +1,14 @@
 [
-  {
-    "id": "meme",
-    "name": "Meme 提示词",
-    "description": "极简抽象海报风格",
-    "sort_order": 1
-  },
-  {
-    "id": "hanzi",
-    "name": "汉字意象徽记",
-    "description": "汉字与徽记设计",
-    "sort_order": 2
-  },
-  {
-    "id": "playful",
-    "name": "趣味图形标志",
-    "description": "Playful 图形风格",
-    "sort_order": 3
-  },
-  {
-    "id": "illustration",
-    "name": "插画",
-    "description": "",
-    "sort_order": 1
-  },
-  {
-    "id": "travel",
-    "name": "旅行",
-    "description": "",
-    "sort_order": 3
-  },
-  {
-    "id": "edu",
-    "name": "教学科普",
-    "description": "",
-    "sort_order": 4
-  },
-  {
-    "id": "poster",
-    "name": "海报",
-    "description": "",
-    "sort_order": 2
-  },
-  {
-    "id": "tech",
-    "name": "科技风格",
-    "description": "",
-    "sort_order": 5
-  },
-  {
-    "id": "arch",
-    "name": "建筑渲染",
-    "description": "",
-    "sort_order": 6
-  },
-  {
-    "id": "logo",
-    "name": "Logo 设计",
-    "description": "",
-    "sort_order": 7
-  },
-  {
-    "id": "effect",
-    "name": "特效",
-    "description": "",
-    "sort_order": 8
-  },
-  {
-    "id": "kawaii",
-    "name": "卡哇伊风格",
-    "description": "",
-    "sort_order": 9
-  },
-  {
-    "id": "abstract",
-    "name": "抽象趣味",
-    "description": "",
-    "sort_order": 10
-  },
-  {
-    "id": "landing",
-    "name": "落地页",
-    "description": "",
-    "sort_order": 11
-  }
+  { "id": "illustration", "name": "插画", "description": "", "sort_order": 1 },
+  { "id": "poster", "name": "海报", "description": "", "sort_order": 2 },
+  { "id": "travel", "name": "旅行", "description": "", "sort_order": 3 },
+  { "id": "edu", "name": "教学科普", "description": "", "sort_order": 4 },
+  { "id": "tech", "name": "科技风格", "description": "", "sort_order": 5 },
+  { "id": "arch", "name": "建筑渲染", "description": "", "sort_order": 6 },
+  { "id": "logo", "name": "Logo 设计", "description": "", "sort_order": 7 },
+  { "id": "effect", "name": "特效", "description": "", "sort_order": 8 },
+  { "id": "kawaii", "name": "卡哇伊风格", "description": "", "sort_order": 9 },
+  { "id": "abstract", "name": "抽象趣味", "description": "", "sort_order": 10 },
+  { "id": "landing", "name": "落地页", "description": "", "sort_order": 11 },
+  { "id": "photo", "name": "摄影", "description": "", "sort_order": 12 }
 ]

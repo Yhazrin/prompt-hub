@@ -43,5 +43,140 @@
     "errors": "[]",
     "started_at": 1778477400,
     "completed_at": 1778477400
+  },
+  {
+    "id": 6,
+    "sync_type": "full",
+    "status": "success",
+    "items_synced": 0,
+    "errors": "[]",
+    "started_at": 1778479200,
+    "completed_at": 1778479200
+  },
+  {
+    "id": 7,
+    "sync_type": "full",
+    "status": "success",
+    "items_synced": 0,
+    "errors": "[]",
+    "started_at": 1778481000,
+    "completed_at": 1778481000
+  },
+  {
+    "id": 8,
+    "sync_type": "full",
+    "status": "success",
+    "items_synced": 0,
+    "errors": "[]",
+    "started_at": 1778482800,
+    "completed_at": 1778482800
+  },
+  {
+    "id": 9,
+    "sync_type": "full",
+    "status": "success",
+    "items_synced": 0,
+    "errors": "[]",
+    "started_at": 1778484600,
+    "completed_at": 1778484601
+  },
+  {
+    "id": 10,
+    "sync_type": "full",
+    "status": "success",
+    "items_synced": 0,
+    "errors": "[]",
+    "started_at": 1778486400,
+    "completed_at": 1778486400
+  },
+  {
+    "id": 11,
+    "sync_type": "full",
+    "status": "success",
+    "items_synced": 0,
+    "errors": "[]",
+    "started_at": 1778488200,
+    "completed_at": 1778488200
+  },
+  {
+    "id": 12,
+    "sync_type": "full",
+    "status": "success",
+    "items_synced": 0,
+    "errors": "[]",
+    "started_at": 1778490000,
+    "completed_at": 1778490000
+  },
+  {
+    "id": 13,
+    "sync_type": "full",
+    "status": "success",
+    "items_synced": 0,
+    "errors": "[]",
+    "started_at": 1778491800,
+    "completed_at": 1778491800
+  },
+  {
+    "id": 14,
+    "sync_type": "full",
+    "status": "success",
+    "items_synced": 0,
+    "errors": "[]",
+    "started_at": 1778493600,
+    "completed_at": 1778493600
+  },
+  {
+    "id": 15,
+    "sync_type": "full",
+    "status": "success",
+    "items_synced": 0,
+    "errors": "[]",
+    "started_at": 1778495400,
+    "completed_at": 1778495400
+  },
+  {
+    "id": 16,
+    "sync_type": "full",
+    "status": "success",
+    "items_synced": 0,
+    "errors": "[]",
+    "started_at": 1778497200,
+    "completed_at": 1778497201
+  },
+  {
+    "id": 17,
+    "sync_type": "full",
+    "status": "success",
+    "items_synced": 0,
+    "errors": "[]",
+    "started_at": 1778499000,
+    "completed_at": 1778499000
+  },
+  {
+    "id": 18,
+    "sync_type": "full",
+    "status": "success",
+    "items_synced": 0,
+    "errors": "[]",
+    "started_at": 1778500800,
+    "completed_at": 1778500800
+  },
+  {
+    "id": 19,
+    "sync_type": "full",
+    "status": "success",
+    "items_synced": 0,
+    "errors": "[]",
+    "started_at": 1778502600,
+    "completed_at": 1778502600
+  },
+  {
+    "id": 20,
+    "sync_type": "full",
+    "status": "success",
+    "items_synced": 0,
+    "errors": "[]",
+    "started_at": 1778504400,
+    "completed_at": 1778504400
   }
 ]

@@ -35,6 +35,18 @@ export async function syncAllFromWiki() {
       upsertCategory({ id: cat.id, name: cat.name, sort_order: sortOrder++ });
     }
 
+    // Step 2.5: Remove categories that no longer exist in wiki
+    const wikiCatIds = new Set(Object.values(categoryMap).map(c => c.id));
+    const { getCategories } = await import('../services/database.js');
+    const allCats = getCategories();
+    for (const cat of allCats) {
+      if (!wikiCatIds.has(cat.id)) {
+        console.log(`🗑️ Removing category "${cat.name}" (${cat.id}) — no longer in wiki`);
+        const { deleteCategory } = await import('../services/database.js');
+        deleteCategory(cat.id);
+      }
+    }
+
     // Step 3: Process leaf nodes
     for (const node of nodes) {
       if (!node.obj_token || node.obj_type !== 'docx') continue;
