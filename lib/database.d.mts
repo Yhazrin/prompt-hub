@@ -1,0 +1,32 @@
+import type { Prompt, Category, GalleryImage, SyncLogEntry, Subcategory, Stats, Pagination, PromptsResponse } from '../src/lib/types';
+
+export function loadData(): { prompts: Prompt[]; categories: Category[] };
+export function saveData(): void;
+export function getPrompts(opts?: {
+  category?: string;
+  sub?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+  sort?: string;
+  order?: string;
+}): PromptsResponse;
+export function getPrompt(id: string): Prompt | null;
+export function upsertPrompt(prompt: Partial<Prompt>): void;
+export function incrementViewCount(id: string): void;
+export function getSubs(categoryId: string): Subcategory[];
+export function getCategories(): Category[];
+export function upsertCategory(cat: { id: string; name: string; description?: string; sort_order?: number }): void;
+export function deleteCategory(categoryId: string): void;
+export function getStats(): Stats;
+export function getGalleryImages(promptId: string): GalleryImage[];
+export function getGalleryImagesBatch(ids: string[]): Record<string, GalleryImage[]>;
+export function addGalleryImage(promptId: string, imageEntry: GalleryImage): GalleryImage;
+export function deleteGalleryImage(promptId: string, imageId: string): boolean;
+export function markGalleryImageSynced(promptId: string, imageId: string, feishuBlockId: string, feishuToken: string): void;
+export function updatePromptField(promptId: string, field: string, value: unknown): void;
+export function toggleFavorite(promptId: string): boolean | null;
+export function addSyncLog(syncType: string, status: string, itemsSynced?: number, errors?: string[]): SyncLogEntry;
+export function updateSyncLog(id: number, status: string, itemsSynced: number, errors?: string[]): void;
+export function getSyncLog(): SyncLogEntry[];
+export function getLastSync(): SyncLogEntry | null;
