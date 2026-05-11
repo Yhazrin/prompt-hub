@@ -39,6 +39,7 @@ async function init() {
     renderHomeView(cats);
     renderFooterStats(stats);
     await updateSyncStatus();
+    fetchGitHubStars();
   } catch (err) {
     console.error('Init failed:', err);
     showToast('数据加载失败，请刷新页面', 'error');
@@ -607,6 +608,22 @@ async function updateSyncStatus() {
   }
 }
 
+async function fetchGitHubStars() {
+  try {
+    const res = await fetch('https://api.github.com/repos/Yhazrin/prompt-hub');
+    if (!res.ok) return;
+    const data = await res.json();
+    const el = document.getElementById('githubStars');
+    if (el && data.stargazers_count !== undefined) {
+      el.textContent = data.stargazers_count >= 1000
+        ? (data.stargazers_count / 1000).toFixed(1) + 'k'
+        : data.stargazers_count;
+    }
+  } catch (err) {
+    console.warn('GitHub stars fetch error:', err);
+  }
+}
+
 async function triggerSync() {
   const dot = document.getElementById('syncDot');
   const label = document.getElementById('syncLabel');
@@ -745,11 +762,6 @@ function toggleFav(promptId, btn) {
   btn.classList.toggle('active');
   const isActive = btn.classList.contains('active');
   showToast(isActive ? '已添加收藏' : '已取消收藏');
-}
-  const toast = document.getElementById('toast');
-  toast.textContent = message;
-  toast.className = 'toast show' + (type !== 'info' ? ' toast-' + type : '');
-  setTimeout(() => toast.classList.remove('show'), 2500);
 }
 
 function timeAgo(timestamp) {

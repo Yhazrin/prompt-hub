@@ -287,6 +287,42 @@ img {
   display: block;
 }
 
+.github-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  height: 2.65rem;
+  padding: 0 0.85rem;
+  border: 1px solid rgba(18, 18, 18, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.66);
+  color: var(--text-soft);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+  backdrop-filter: blur(12px);
+  transition: border-color 220ms ease, color 220ms ease, background-color 220ms ease, transform 220ms ease;
+}
+
+.github-btn:hover {
+  border-color: rgba(18, 18, 18, 0.18);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.github-btn svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex-shrink: 0;
+}
+
+.github-stars {
+  font-variant-numeric: tabular-nums;
+  min-width: 1.5ch;
+  text-align: center;
+}
+
 .search-overlay {
   position: fixed;
   inset: 0;
