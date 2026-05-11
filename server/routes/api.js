@@ -27,6 +27,7 @@ const upload = multer({
   },
 });
 
+const router = Router();
 // GET /api/prompts
 router.get('/prompts', (req, res) => {
   const { category, sub, search, page, limit, sort, order } = req.query;
