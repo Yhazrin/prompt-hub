@@ -241,6 +241,7 @@ function createMosaicCard(prompt, index, catMap) {
   var imgSrc = (prompt.image_url || (prompt.cover_url ? 'https://yhazrin.xyz' + prompt.cover_url : null)) || null;
   var catName = catMap[prompt.category_id] || prompt.subcategory || '';
   var title = prompt.title || '\u65e0\u6807\u9898';
+  var isFav = prompt.favorite;
 
   var mediaHtml;
   if (imgSrc) {
@@ -262,7 +263,13 @@ function createMosaicCard(prompt, index, catMap) {
     '</div>';
   }
 
-  card.innerHTML = '<div class="mc-media" style="aspect-ratio:' + ratio.replace('/', ' / ') + '">' + mediaHtml + '</div>' +
+  var favBtn = '<button class="mc-fav' + (isFav ? ' active' : '') + '" aria-label="\u6536\u85cf" data-id="' + prompt.id + '">' +
+    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+      '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>' +
+    '</svg>' +
+  '</button>';
+
+  card.innerHTML = '<div class="mc-media" style="aspect-ratio:' + ratio.replace('/', ' / ') + '">' + mediaHtml + favBtn + '</div>' +
     '<div class="mc-body">' +
     '<h3 class="mc-title">' + title + '</h3>' +
     (!imgSrc ? '<span class="mc-cat-label" style="color:' + colors.label + '">' + catName + '</span>' : '') +
@@ -270,8 +277,19 @@ function createMosaicCard(prompt, index, catMap) {
     '<span class="mc-ratio"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><rect x="0.5" y="0.5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-opacity=".4"/><rect x="1.5" y="1.5" width="7" height="7" rx="1" fill="currentColor" fill-opacity=".25"/></svg>' + ratio + '</span>' +
     '</div></div>';
 
-  card.addEventListener('click', function() { openLightbox(index); });
-  card.addEventListener('keydown', function(e) { if (e.key === 'Enter') openLightbox(index); });
+  card.addEventListener('click', function(e) {
+    if (e.target.closest('.mc-fav')) return;
+    openLightbox(index);
+  });
+  card.addEventListener('keydown', function(e) { if (e.key === 'Enter' && !e.target.closest('.mc-fav')) openLightbox(index); });
+
+  var favEl = card.querySelector('.mc-fav');
+  if (favEl) {
+    favEl.addEventListener('click', function(ee) {
+      ee.stopPropagation();
+      toggleFav(prompt.id, favEl);
+    });
+  }
 
   return card;
 }
@@ -423,12 +441,16 @@ function createCard(prompt, index) {
 
   const copyBtn = document.createElement('button');
   copyBtn.className = 'copy-btn';
-  copyBtn.textContent = '复制提示词';
+  copyBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>复制提示词';
   copyBtn.addEventListener('click', e => {
     e.stopPropagation();
     copyToClipboard(prompt.prompt_text);
-    copyBtn.textContent = '已复制!';
-    setTimeout(() => { copyBtn.textContent = '复制提示词'; }, 1500);
+    copyBtn.classList.add('copied');
+    copyBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>已复制';
+    setTimeout(() => {
+      copyBtn.classList.remove('copied');
+      copyBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>复制提示词';
+    }, 1500);
   });
 
   overlay.appendChild(promptText);
@@ -627,9 +649,20 @@ async function doSearch(query) {
     document.getElementById('searchResults').innerHTML = '';
     return;
   }
+  const container = document.getElementById('searchResults');
+  // Show skeleton loading
+  container.innerHTML = Array(4).fill(0).map(() =>
+    `<div class="search-skeleton">
+      <div class="search-skeleton-thumb"></div>
+      <div class="search-skeleton-lines">
+        <div class="search-skeleton-line title"></div>
+        <div class="search-skeleton-line cat"></div>
+        <div class="search-skeleton-line preview"></div>
+      </div>
+    </div>`
+  ).join('');
   try {
     const results = await api(`/api/search?q=${encodeURIComponent(query)}`);
-    const container = document.getElementById('searchResults');
     container.innerHTML = '';
 
     if (results.length === 0) {
@@ -665,6 +698,7 @@ async function doSearch(query) {
     });
   } catch (err) {
     console.warn('Search error:', err);
+    container.innerHTML = `<div style="padding:20px;text-align:center;color:var(--muted)">搜索失败，请重试</div>`;
   }
 }
 
@@ -707,6 +741,17 @@ function showToast(message, type = 'info') {
   setTimeout(() => toast.classList.remove('show'), 2500);
 }
 
+function toggleFav(promptId, btn) {
+  btn.classList.toggle('active');
+  const isActive = btn.classList.contains('active');
+  showToast(isActive ? '已添加收藏' : '已取消收藏');
+}
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.className = 'toast show' + (type !== 'info' ? ' toast-' + type : '');
+  setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
 function timeAgo(timestamp) {
   const diff = Date.now() - timestamp;
   const mins = Math.floor(diff / 60000);
@@ -730,6 +775,18 @@ document.getElementById('lightboxCopy').addEventListener('click', () => {
   const p = state.currentPrompts[state.lightboxIndex];
   if (p) {
     copyToClipboard(p.prompt_text);
+    const btn = document.getElementById('lightboxCopy');
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>已复制!';
+    btn.style.borderColor = 'var(--success)';
+    btn.style.background = 'var(--success)';
+    btn.style.color = '#fff';
+    setTimeout(() => {
+      btn.innerHTML = orig;
+      btn.style.borderColor = '';
+      btn.style.background = '';
+      btn.style.color = '';
+    }, 1500);
     showToast('提示词已复制', 'success');
   }
 });

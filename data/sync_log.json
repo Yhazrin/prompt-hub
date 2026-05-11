@@ -7,5 +7,41 @@
     "errors": null,
     "started_at": 1746547200,
     "completed_at": 1746547200
+  },
+  {
+    "id": 2,
+    "sync_type": "full",
+    "status": "success",
+    "items_synced": 0,
+    "errors": "[]",
+    "started_at": 1778472000,
+    "completed_at": 1778472000
+  },
+  {
+    "id": 3,
+    "sync_type": "full",
+    "status": "success",
+    "items_synced": 0,
+    "errors": "[]",
+    "started_at": 1778473800,
+    "completed_at": 1778473800
+  },
+  {
+    "id": 4,
+    "sync_type": "full",
+    "status": "success",
+    "items_synced": 0,
+    "errors": "[]",
+    "started_at": 1778475600,
+    "completed_at": 1778475600
+  },
+  {
+    "id": 5,
+    "sync_type": "full",
+    "status": "success",
+    "items_synced": 0,
+    "errors": "[]",
+    "started_at": 1778477400,
+    "completed_at": 1778477400
   }
 ]
