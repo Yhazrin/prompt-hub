@@ -1,3 +1,5 @@
+import { CAT_COLORS, getCatColors, escapeHtml, truncate, highlightMatch, copyToClipboard, CHECK_SVG, COPY_SVG, animateCopyButton, showToast, timeAgo } from './utils.js';
+
 // ── State ──────────────────────────────────────────────────
 const state = {
   view: 'home',           // 'home' | 'category'
@@ -25,6 +27,41 @@ async function api(path, opts = {}) {
   return res.json();
 }
 
+// ── URL Hash Routing ──────────────────────────────────────
+function getRoute() {
+  const hash = location.hash || '#/';
+  const parts = hash.replace('#/', '').split('/').filter(Boolean);
+  if (parts[0] === 'cat' && parts[1]) {
+    return { view: 'category', catId: decodeURIComponent(parts[1]), sub: parts[2] ? decodeURIComponent(parts[2]) : null };
+  }
+  if (parts[0] === 'prompt' && parts[1]) {
+    return { view: 'prompt', promptId: decodeURIComponent(parts[1]) };
+  }
+  return { view: 'home' };
+}
+
+function setRoute(view, catId, sub, promptId) {
+  let hash = '#/';
+  if (view === 'category' && catId) {
+    hash = '#/cat/' + encodeURIComponent(catId);
+    if (sub) hash += '/' + encodeURIComponent(sub);
+  }
+  if (history.replaceState) {
+    history.replaceState(null, '', hash);
+  } else {
+    location.hash = hash;
+  }
+}
+
+async function handleRoute() {
+  const route = getRoute();
+  if (route.view === 'home') {
+    navigateHome();
+  } else if (route.view === 'category') {
+    await navigateCategory(route.catId, route.sub);
+  }
+}
+
 // ── Init ───────────────────────────────────────────────────
 async function init() {
   try {
@@ -38,19 +75,33 @@ async function init() {
 
     renderTopNav(cats);
     renderFooterCats(cats);
-    renderHomeView(cats);
     renderFooterStats(stats);
     await updateSyncStatus();
     fetchGitHubStars();
+
+    // Route-aware: navigate to hash or home
+    const route = getRoute();
+    if (route.view === 'category') {
+      await navigateCategory(route.catId, route.sub);
+    } else {
+      await renderHomeView(cats);
+    }
   } catch (err) {
     console.error('Init failed:', err);
-    showToast('数据加载失败，请刷新页面', 'error');
+    const homeSections = document.getElementById('homeSections');
+    homeSections.innerHTML = '<div class="init-error"><p class="init-error-text">数据加载失败</p><p class="init-error-detail">' + escapeHtml(err.message) + '</p><button class="init-retry-btn" id="initRetryBtn">重新加载</button></div>';
+    document.getElementById('initRetryBtn')?.addEventListener('click', () => {
+      homeSections.innerHTML = '';
+      init();
+    });
   }
 }
 
 // ── Top Navigation ────────────────────────────────────────
 function renderTopNav(categories) {
   const nav = document.getElementById('primaryNav');
+  // Clear existing buttons but keep the indicator
+  nav.querySelectorAll('button').forEach(b => b.remove());
 
   // Home button
   const homeBtn = document.createElement('button');
@@ -100,7 +151,7 @@ async function renderSubNav(categoryId) {
       const li = document.createElement('li');
       const btn = document.createElement('button');
       btn.dataset.sub = sub.subcategory;
-      btn.innerHTML = '<span class="sub-name">' + sub.subcategory + '</span><span class="sub-count">' + sub.count + '</span>';
+      btn.innerHTML = '<span class="sub-name">' + escapeHtml(sub.subcategory) + '</span><span class="sub-count">' + sub.count + '</span>';
       btn.addEventListener('click', () => navigateSub(sub.subcategory));
       li.appendChild(btn);
       subNav.appendChild(li);
@@ -112,39 +163,9 @@ async function renderSubNav(categoryId) {
   updateSubPill(document.querySelector('.sub-nav button.active') || allBtn);
 }
 
-// ── Home View ──────────────────────────────────────────────
-const CAT_COLORS = {
-  illustration: { bg: '#f5ede4', accent: '#c4956a', label: '#8b5e3c' },
-  poster:       { bg: '#f0e8f5', accent: '#9b6fc4', label: '#6b3fa0' },
-  arch:          { bg: '#e8f0f5', accent: '#5a9bbf', label: '#2d6a8a' },
-  meme:          { bg: '#f5f0e8', accent: '#c4a06a', label: '#8b6a2c' },
-  hanzi:        { bg: '#f5ede8', accent: '#c4785a', label: '#8b3c1c' },
-  playful:      { bg: '#f5f8e8', accent: '#8bc45a', label: '#4a7a1c' },
-  travel:       { bg: '#e8f5f0', accent: '#5ac4a0', label: '#2a7a5a' },
-  edu:          { bg: '#e8f5f5', accent: '#5ac4c4', label: '#2a7a7a' },
-  tech:         { bg: '#e8f0f8', accent: '#7a5ac4', label: '#4a2a8b' },
-  logo:         { bg: '#f0f5e8', accent: '#8ba05a', label: '#5a702a' },
-  effect:       { bg: '#f5e8e8', accent: '#c45a7a', label: '#8b2a4a' },
-  kawaii:       { bg: '#f8e8f5', accent: '#c47abf', label: '#8b4a7a' },
-  abstract:     { bg: '#f0e8f0', accent: '#9b5ac4', label: '#6b2a8b' },
-  landing:      { bg: '#e8f0f0', accent: '#5a8bc4', label: '#2a5a8b' },
-  other:        { bg: '#f0f0f0', accent: '#8a8a8a', label: '#4a4a4a' },
-};
-
-function getCatColors(catId) {
-  return CAT_COLORS[catId] || CAT_COLORS.other;
-}
-
-function truncate(text, maxLen) {
-  maxLen = maxLen || 120;
-  if (!text) return '';
-  var clean = text.replace(/[#*`_~]/g, '').replace(/\s+/g, ' ').trim();
-  if (clean.length <= maxLen) return clean;
-  return clean.slice(0, maxLen).replace(/\s+\S*$/, '') + '\u2026';
-}
-
+// ── Home View
 async function renderHomeView(categories) {
-  var homeSections = document.getElementById('homeSections');
+  const homeSections = document.getElementById('homeSections');
   homeSections.innerHTML = '';
   state.view = 'home';
   state.currentPrompts = [];
@@ -153,8 +174,8 @@ async function renderHomeView(categories) {
   document.querySelector('.layout').dataset.view = 'home';
 
   // Stats strip
-  var promptCount = categories.reduce(function(s, c) { return s + (c.prompt_count || 0); }, 0);
-  var statsStrip = document.createElement('div');
+  const promptCount = categories.reduce(function(s, c) { return s + (c.prompt_count || 0); }, 0);
+  const statsStrip = document.createElement('div');
   statsStrip.className = 'home-stats';
   statsStrip.innerHTML = '<div class="stats-inner">' +
     '<span class="stat-item"><svg class="stat-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="stat-num">' + promptCount + '</span><span class="stat-label">\u6761\u63d0\u793a\u8bcd</span></span>' +
@@ -166,20 +187,20 @@ async function renderHomeView(categories) {
   homeSections.appendChild(statsStrip);
 
   // Category pills
-  var pillsRow = document.createElement('div');
+  const pillsRow = document.createElement('div');
   pillsRow.className = 'cat-pills';
-  var allBtn = document.createElement('button');
+  const allBtn = document.createElement('button');
   allBtn.className = 'cat-pill active';
   allBtn.textContent = '\u5168\u90e8';
   allBtn.dataset.cat = '';
   allBtn.addEventListener('click', function() { filterMosaic(''); });
   pillsRow.appendChild(allBtn);
   categories.forEach(function(cat) {
-    var btn = document.createElement('button');
+    const btn = document.createElement('button');
     btn.className = 'cat-pill';
     btn.textContent = cat.name;
     btn.dataset.cat = cat.id;
-    var colors = getCatColors(cat.id);
+    const colors = getCatColors(cat.id);
     btn.style.setProperty('--pill-accent', colors.accent);
     btn.addEventListener('click', function() { filterMosaic(cat.id); });
     pillsRow.appendChild(btn);
@@ -187,17 +208,17 @@ async function renderHomeView(categories) {
   homeSections.appendChild(pillsRow);
 
   // Mosaic grid
-  var mosaicSection = document.createElement('div');
+  const mosaicSection = document.createElement('div');
   mosaicSection.className = 'home-mosaic-section';
-  var mosaicGrid = document.createElement('div');
+  const mosaicGrid = document.createElement('div');
   mosaicGrid.className = 'mosaic-grid';
   mosaicGrid.id = 'mosaicGrid';
 
   try {
-    var allPrompts = [];
-    var pp = 1, totalPages = 1;
+    let allPrompts = [];
+    let pp = 1; let totalPages = 1;
     do {
-      var pd = await api('/api/prompts?page=' + pp + '&limit=50');
+      const pd = await api('/api/prompts?page=' + pp + '&limit=50');
       allPrompts = allPrompts.concat(pd.prompts);
       totalPages = (pd.pagination && pd.pagination.pages) ? pd.pagination.pages : 1;
       pp++;
@@ -205,13 +226,17 @@ async function renderHomeView(categories) {
 
     state.currentPrompts = allPrompts;
 
-    var catMap = {};
+    const catMap = {};
     categories.forEach(function(c) { catMap[c.id] = c.name; });
 
+    // Create all cards
     allPrompts.forEach(function(p, i) {
       mosaicGrid.appendChild(createMosaicCard(p, i, catMap));
-      fetchCardGallery(p.id);
     });
+
+    // Batch fetch all gallery images in one request
+    const allIds = allPrompts.map(function(p) { return p.id; });
+    fetchBatchGallery(allIds);
   } catch(e) {
     console.warn('Mosaic load failed:', e);
   }
@@ -224,38 +249,58 @@ function filterMosaic(catId) {
   document.querySelectorAll('.cat-pill').forEach(function(p) {
     p.classList.toggle('active', p.dataset.cat === (catId || ''));
   });
-  var cards = document.querySelectorAll('.mosaic-card');
+  const cards = document.querySelectorAll('.mosaic-card');
+  let count = 0;
+  let firstVisible = null;
   cards.forEach(function(card) {
-    var match = !catId || card.dataset.cat === catId;
-    card.style.display = match ? '' : 'none';
+    let match = !catId || card.dataset.cat === catId;
+    if (match) {
+      count++;
+      if (!firstVisible) firstVisible = card;
+      card.style.display = '';
+      card.style.opacity = '1';
+      card.style.transform = '';
+    } else {
+      card.style.opacity = '0';
+      card.style.transform = 'scale(0.96)';
+      setTimeout(() => { if (card.style.opacity === '0') card.style.display = 'none'; }, 200);
+    }
   });
+  // Show count feedback
+  const catName = catId ? (state.categories.find(c => c.id === catId)?.name || '') : '全部';
+  showToast(catName + ': ' + count + ' 条', 'info');
+  // Scroll to first visible card
+  if (firstVisible) {
+    setTimeout(() => firstVisible.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+  }
 }
 
 function createMosaicCard(prompt, index, catMap) {
-  var card = document.createElement('article');
+  const card = document.createElement('article');
   card.className = 'mosaic-card';
   card.dataset.index = index;
   card.dataset.cat = prompt.category_id || 'other';
   card.setAttribute('role', 'button');
   card.setAttribute('tabindex', '0');
 
-  var colors = getCatColors(prompt.category_id);
+  const colors = getCatColors(prompt.category_id);
   card.style.setProperty('--cat-accent', colors.accent);
-  var ratio = prompt.ratio || '4 / 5';
-  var imgSrc = (prompt.image_url || (prompt.cover_url ? 'https://yhazrin.xyz' + prompt.cover_url : null)) || null;
-  var catName = catMap[prompt.category_id] || prompt.subcategory || '';
-  var title = prompt.title || '\u65e0\u6807\u9898';
-  var isFav = prompt.favorite;
+  const ratio = prompt.ratio || '4 / 5';
+  const imgSrc = (prompt.image_url || (prompt.cover_url ? 'https://yhazrin.xyz' + prompt.cover_url : null)) || null;
+  const catName = catMap[prompt.category_id] || prompt.subcategory || '';
+  const title = escapeHtml(prompt.title || '\u65e0\u6807\u9898');
+  const isFav = prompt.favorite;
+  const safeId = prompt.id.replace(/[^a-zA-Z0-9]/g, '_');
 
-  var mediaHtml;
+  let mediaHtml;
   if (imgSrc) {
-    mediaHtml = '<img src="' + imgSrc + '" alt="' + title + '" loading="lazy" onerror="this.parentElement.classList.add(\x27img-error\x27)">' +
-      '<span class="mc-cat-badge" style="background:' + colors.accent + '">' + catName + '</span>';
+    mediaHtml = '<img src="' + escapeHtml(imgSrc) + '" alt="' + title + '" loading="lazy" onerror="this.parentElement.classList.add(\x27img-error\x27)">' +
+      '<span class="mc-cat-badge" style="background:' + colors.accent + '">' + escapeHtml(catName) + '</span>';
   } else {
     mediaHtml = '<div class="mc-placeholder" style="background:' + colors.bg + '">' +
       '<div class="mc-placeholder-inner">' +
       '<span class="mc-cat-bar" style="background:' + colors.accent + '"></span>' +
-      '<p class="mc-text-preview">' + truncate(prompt.prompt_text, 110) + '</p>' +
+      '<p class="mc-text-preview">' + escapeHtml(truncate(prompt.prompt_text, 110)) + '</p>' +
       '</div>' +
       '<div class="mc-text-badge">' +
         '<svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">' +
@@ -267,7 +312,7 @@ function createMosaicCard(prompt, index, catMap) {
     '</div>';
   }
 
-  var favBtn = '<button class="mc-fav' + (isFav ? ' active' : '') + '" aria-label="\u6536\u85cf" data-id="' + prompt.id + '">' +
+  const favBtn = '<button class="mc-fav' + (isFav ? ' active' : '') + '" aria-label="\u6536\u85cf" data-id="' + safeId + '">' +
     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
       '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>' +
     '</svg>' +
@@ -276,11 +321,11 @@ function createMosaicCard(prompt, index, catMap) {
   card.innerHTML = '<div class="mc-media" style="aspect-ratio:' + ratio.replace('/', ' / ') + '">' + mediaHtml + favBtn + '</div>' +
     '<div class="mc-body">' +
     '<h3 class="mc-title">' + title + '</h3>' +
-    (!imgSrc ? '<span class="mc-cat-label" style="color:' + colors.label + '">' + catName + '</span>' : '') +
+    (!imgSrc ? '<span class="mc-cat-label" style="color:' + colors.label + '">' + escapeHtml(catName) + '</span>' : '') +
     '<div class="mc-meta">' +
     '<span class="mc-ratio"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><rect x="0.5" y="0.5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-opacity=".4"/><rect x="1.5" y="1.5" width="7" height="7" rx="1" fill="currentColor" fill-opacity=".25"/></svg>' + ratio + '</span>' +
     '</div></div>' +
-    '<div class="mc-gallery-strip" id="mcgs-' + prompt.id.replace(/[^a-zA-Z0-9]/g, '_') + '"></div>';
+    '<div class="mc-gallery-strip" id="mcgs-' + safeId + '"></div>';
 
   card.addEventListener('click', function(e) {
     if (e.target.closest('.mc-fav')) return;
@@ -288,7 +333,7 @@ function createMosaicCard(prompt, index, catMap) {
   });
   card.addEventListener('keydown', function(e) { if (e.key === 'Enter' && !e.target.closest('.mc-fav')) openLightbox(index); });
 
-  var favEl = card.querySelector('.mc-fav');
+  const favEl = card.querySelector('.mc-fav');
   if (favEl) {
     favEl.addEventListener('click', function(ee) {
       ee.stopPropagation();
@@ -309,8 +354,8 @@ function renderCardGalleryStrip(promptId, images) {
   const extra = images.length - show.length;
 
   strip.innerHTML = show.map(img =>
-    '<div class="mc-gallery-thumb" data-gallery-url="' + img.url + '">' +
-      '<img src="' + img.url + '" alt="" loading="lazy"/>' +
+    '<div class="mc-gallery-thumb" data-gallery-url="' + escapeHtml(img.url) + '">' +
+      '<img src="' + escapeHtml(img.url) + '" alt="" loading="lazy"/>' +
     '</div>'
   ).join('') + (extra > 0
     ? '<div class="mc-gallery-more">+' + extra + '</div>'
@@ -337,6 +382,23 @@ async function fetchCardGallery(promptId) {
   }
 }
 
+async function fetchBatchGallery(ids) {
+  if (ids.length === 0) return;
+  try {
+    const batchSize = 200;
+    for (let i = 0; i < ids.length; i += batchSize) {
+      const batch = ids.slice(i, i + batchSize);
+      const result = await api('/api/gallery/batch?ids=' + batch.join(','));
+      Object.entries(result).forEach(function([promptId, images]) {
+        state.galleryCache[promptId] = images;
+        renderCardGalleryStrip(promptId, images);
+      });
+    }
+  } catch (err) {
+    console.warn('Batch gallery fetch failed:', err);
+  }
+}
+
 // ── Category View ─────────────────────────────────────────
 async function renderCategoryView(categoryId, subcategory = null) {
   const homeView = document.getElementById('homeView');
@@ -358,8 +420,8 @@ async function renderCategoryView(categoryId, subcategory = null) {
   header.style.setProperty('--cat-bg', colors.bg);
   header.innerHTML = `
     <div class="cat-header-accent" style="background:${colors.accent}"></div>
-    <h1>${cat?.name || categoryId}</h1>
-    <p>${cat?.description || ''} · 共 ${cat?.prompt_count || 0} 条提示词</p>
+    <h1>${escapeHtml(cat?.name || categoryId)}</h1>
+    <p>${escapeHtml(cat?.description || '')} · 共 ${cat?.prompt_count || 0} 条提示词</p>
   `;
 
   await renderSubNav(categoryId);
@@ -396,11 +458,13 @@ async function loadPrompts(categoryId, subcategory, page) {
       return;
     }
 
+    const newIds = [];
     data.prompts.forEach(p => {
       state.currentPrompts.push(p);
       grid.appendChild(createCard(p, state.currentPrompts.length - 1));
-      fetchCardGallery(p.id);
+      newIds.push(p.id);
     });
+    fetchBatchGallery(newIds);
 
     state.page = page;
     state.loading = false;
@@ -438,30 +502,6 @@ function setupInfiniteScroll() {
 }
 
 // ── Card / Tile creation ───────────────────────────────────
-function createHomeTile(prompt) {
-  const tile = document.createElement('div');
-  tile.className = 'home-tile';
-  tile.dataset.index = state.currentPrompts.length;
-  tile.setAttribute('role', 'button');
-  tile.setAttribute('tabindex', '0');
-
-  const img = document.createElement('img');
-  img.src = (prompt.cover_url || prompt.image_url || `https://picsum.photos/seed/${prompt.id}/400/400`);
-  img.alt = prompt.title;
-  img.loading = 'lazy';
-  img.onload = () => tile.classList.add('is-loaded');
-  img.onerror = () => { tile.classList.add('is-loaded'); img.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><rect fill="%23f3efe8" width="400" height="400"/><text fill="%23857970" font-size="34" font-family="sans-serif" text-anchor="middle" x="200" y="208">No Image</text></svg>'; };
-
-  tile.appendChild(img);
-  tile.addEventListener('click', () => openLightbox(parseInt(tile.dataset.index)));
-  tile.addEventListener('keydown', e => { if (e.key === 'Enter') openLightbox(parseInt(tile.dataset.index)); });
-
-  // Track prompts in home view
-  state.currentPrompts.push(prompt);
-
-  return tile;
-}
-
 function createCard(prompt, index) {
   const card = document.createElement('div');
   card.className = 'card';
@@ -485,16 +525,13 @@ function createCard(prompt, index) {
 
   const copyBtn = document.createElement('button');
   copyBtn.className = 'copy-btn';
-  copyBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>复制提示词';
+  const cardCopyOrigHtml = COPY_SVG + '复制提示词';
+  copyBtn.innerHTML = cardCopyOrigHtml;
   copyBtn.addEventListener('click', e => {
     e.stopPropagation();
     copyToClipboard(prompt.prompt_text);
-    copyBtn.classList.add('copied');
-    copyBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>已复制';
-    setTimeout(() => {
-      copyBtn.classList.remove('copied');
-      copyBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>复制提示词';
-    }, 1500);
+    animateCopyButton(copyBtn, cardCopyOrigHtml);
+    showToast('提示词已复制', 'success');
   });
 
   overlay.appendChild(promptText);
@@ -510,8 +547,11 @@ function createCard(prompt, index) {
 }
 
 // ── Lightbox ──────────────────────────────────────────────
+let lightboxTriggerEl = null;
+
 async function openLightbox(index) {
   if (state.currentPrompts.length === 0) return;
+  lightboxTriggerEl = document.activeElement;
   state.lightboxIndex = index;
   const prompt = state.currentPrompts[index];
   if (!prompt) return;
@@ -534,12 +574,15 @@ async function openLightbox(index) {
   };
   img.src = mainUrl;
 
-  // Fetch gallery images for the strip (left side)
-  let galleryImages = [];
-  try {
-    galleryImages = await api('/api/prompts/' + prompt.id + '/gallery');
-  } catch (err) {
-    galleryImages = [];
+  // Fetch gallery images for the strip (left side) — reuse cache if available
+  let galleryImages = state.galleryCache[prompt.id] || null;
+  if (!galleryImages) {
+    try {
+      galleryImages = await api('/api/prompts/' + prompt.id + '/gallery');
+      state.galleryCache[prompt.id] = galleryImages;
+    } catch (err) {
+      galleryImages = [];
+    }
   }
   state.lightboxGalleryImages = galleryImages;
 
@@ -555,16 +598,16 @@ async function openLightbox(index) {
 
   // Source link
   if (prompt.source_url) {
-    source.innerHTML = '<a href="' + prompt.source_url + '" target="_blank" rel="noopener" class="lightbox-source-link">' + (prompt.wiki_doc_title || '来源') + '</a>';
+    source.innerHTML = '<a href="' + escapeHtml(prompt.source_url) + '" target="_blank" rel="noopener" class="lightbox-source-link">' + escapeHtml(prompt.wiki_doc_title || '来源') + '</a>';
   } else {
     source.textContent = prompt.wiki_doc_title || '';
   }
 
   // Tags
-  var tagsWrap = document.getElementById('lightboxTags');
+  const tagsWrap = document.getElementById('lightboxTags');
   if (prompt.tags) {
-    var tagList = prompt.tags.split(',').map(function(t) { return t.trim(); }).filter(Boolean);
-    tagsWrap.innerHTML = tagList.map(function(t) { return '<span class="lightbox-tag">' + t + '</span>'; }).join('');
+    const tagList = prompt.tags.split(',').map(function(t) { return t.trim(); }).filter(Boolean);
+    tagsWrap.innerHTML = tagList.map(function(t) { return '<span class="lightbox-tag">' + escapeHtml(t) + '</span>'; }).join('');
     tagsWrap.style.display = '';
   } else {
     tagsWrap.innerHTML = '';
@@ -597,8 +640,8 @@ function renderLightboxImageStrip(allImages, activeUrl) {
 
   strip.innerHTML = galleryOnly.map(img => {
     const active = img.url === activeUrl ? ' active' : '';
-    return '<div class="strip-thumb' + active + '" data-url="' + img.url + '" title="查看此图">' +
-      '<img src="' + img.url + '" alt="" loading="lazy"/>' +
+    return '<div class="strip-thumb' + active + '" data-url="' + escapeHtml(img.url) + '" title="查看此图">' +
+      '<img src="' + escapeHtml(img.url) + '" alt="" loading="lazy"/>' +
     '</div>';
   }).join('');
 
@@ -630,6 +673,7 @@ function closeLightbox() {
   lightbox.dataset.open = 'false';
   setTimeout(() => { lightbox.hidden = true; }, 300);
   document.body.classList.remove('lightbox-open');
+  if (lightboxTriggerEl) { lightboxTriggerEl.focus(); lightboxTriggerEl = null; }
 }
 
 // ── Navigation ─────────────────────────────────────────────
@@ -640,17 +684,20 @@ function navigateHome() {
   document.getElementById('homeView').hidden = false;
   document.getElementById('categoryView').hidden = true;
   document.querySelector('.layout').dataset.view = 'home';
+  setRoute('home');
   updateNavIndicator(document.querySelector('[data-cat=""]'));
 }
 
-async function navigateCategory(catId) {
-  await renderCategoryView(catId, null);
+async function navigateCategory(catId, sub) {
+  await renderCategoryView(catId, sub || null);
+  setRoute('category', catId, sub);
   updateNavIndicator(document.querySelector(`[data-cat="${catId}"]`));
 }
 
 async function navigateSub(subcategory) {
   state.currentSub = subcategory;
   await loadPrompts(state.currentCat, subcategory, 1);
+  setRoute('category', state.currentCat, subcategory);
   updateSubPill(document.querySelector(`.sub-nav button[data-sub="${subcategory || ''}"]`));
 }
 
@@ -740,8 +787,8 @@ async function triggerSync() {
     const result = await fetch(ADMIN + '/sync', { method: 'POST' }).then(r => r.json());
     if (result.success) {
       showToast(`同步完成: ${result.syncedCount} 条提示词`, 'success');
-      // Reload data
-      await init();
+      // Incremental refresh using changedIds
+      await incrementalRefresh(result.changedIds || []);
     } else {
       showToast('同步失败: ' + result.error, 'error');
       dot.className = 'sync-dot error';
@@ -752,6 +799,53 @@ async function triggerSync() {
   }
 
   await updateSyncStatus();
+}
+
+async function incrementalRefresh(changedIds) {
+  // Refresh categories and stats
+  const [cats, stats] = await Promise.all([
+    api('/api/categories'),
+    api('/api/stats'),
+  ]);
+  state.categories = cats;
+  state.totalPrompts = stats.total;
+  renderTopNav(cats);
+  renderFooterCats(cats);
+  renderFooterStats(stats);
+
+  if (changedIds.length === 0) {
+    // No changes tracked, full re-render of current view
+    if (state.view === 'home') await renderHomeView(cats);
+    else await renderCategoryView(state.currentCat, state.currentSub);
+    return;
+  }
+
+  // Fetch updated prompts
+  const updated = await fetch(API + '/api/prompts/batch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids: changedIds }),
+  }).then(r => r.json());
+
+  if (state.view === 'home') {
+    // Update mosaic cards in place
+    updated.forEach(p => {
+      const idx = state.currentPrompts.findIndex(cp => cp.id === p.id);
+      if (idx >= 0) {
+        state.currentPrompts[idx] = p;
+        const card = document.querySelector(`.mosaic-card[data-index="${idx}"]`);
+        if (card) {
+          const catMap = {};
+          state.categories.forEach(c => { catMap[c.id] = c.name; });
+          const newCard = createMosaicCard(p, idx, catMap);
+          card.replaceWith(newCard);
+        }
+      }
+    });
+  } else {
+    // Reload current category view
+    await renderCategoryView(state.currentCat, state.currentSub);
+  }
 }
 
 // ── Search ────────────────────────────────────────────────
@@ -788,7 +882,7 @@ async function doSearch(query) {
     container.innerHTML = '';
 
     if (results.length === 0) {
-      container.innerHTML = `<div style="padding:20px;text-align:center;color:var(--muted)">未找到匹配结果</div>`;
+      container.innerHTML = `<div style="padding:20px;text-align:center;color:const(--muted)">未找到匹配结果</div>`;
       return;
     }
 
@@ -797,37 +891,40 @@ async function doSearch(query) {
       item.className = 'search-result-item';
       const colors = getCatColors(p.category_id);
       item.style.setProperty('--sr-accent', colors.accent);
+      const srImgSrc = p.cover_url || p.image_url || `https://picsum.photos/seed/${p.id}/100/100`;
+      const ago = p.updated_at ? timeAgo(p.updated_at) : '';
+      const subInfo = p.subcategory && p.subcategory !== p.category_name ? ' · ' + escapeHtml(p.subcategory) : '';
       item.innerHTML = `
         <div class="search-result-color" style="background:${colors.accent}"></div>
-        <img class="search-result-thumb" src="${(p.cover_url || p.image_url || `https://picsum.photos/seed/${p.id}/100/100`)}" alt="" loading="lazy">
+        <img class="search-result-thumb" src="${escapeHtml(srImgSrc)}" alt="" loading="lazy">
         <div class="search-result-text">
-          <div class="search-result-title">${p.title}</div>
-          <div class="search-result-cat">${p.category_name || ''} · ${p.wiki_doc_title || ''}</div>
-          <div class="search-result-preview">${(p.prompt_text || '').slice(0, 60)}...</div>
+          <div class="search-result-title">${highlightMatch(p.title, query)}</div>
+          <div class="search-result-cat">${escapeHtml(p.category_name || '')}${subInfo}${ago ? ' · ' + escapeHtml(ago) : ''}</div>
+          <div class="search-result-preview">${highlightMatch((p.prompt_text || '').slice(0, 80), query)}...</div>
         </div>
       `;
-      item.addEventListener('click', () => {
+      item.addEventListener('click', async () => {
         closeSearch();
-        // Navigate to category view with this prompt
-        navigateCategory(p.category_id);
-        // Find and open the lightbox
-        setTimeout(async () => {
-          const idx = state.currentPrompts.findIndex(cp => cp.id === p.id);
-          if (idx >= 0) openLightbox(idx);
-        }, 500);
+        await navigateCategory(p.category_id);
+        const idx = state.currentPrompts.findIndex(cp => cp.id === p.id);
+        if (idx >= 0) openLightbox(idx);
       });
       container.appendChild(item);
     });
   } catch (err) {
     console.warn('Search error:', err);
-    container.innerHTML = `<div style="padding:20px;text-align:center;color:var(--muted)">搜索失败，请重试</div>`;
+    container.innerHTML = `<div style="padding:20px;text-align:center;color:const(--muted)">搜索失败，请重试</div>`;
   }
 }
 
 // ── Footer ────────────────────────────────────────────────
 function renderFooterCats(categories) {
   const el = document.getElementById('footerCats');
-  categories.slice(0, 6).forEach(cat => {
+  el.innerHTML = '';
+  const showAll = categories.length <= 8;
+  const visible = showAll ? categories : categories.slice(0, 6);
+
+  visible.forEach(cat => {
     const li = document.createElement('li');
     const btn = document.createElement('button');
     btn.textContent = cat.name;
@@ -835,6 +932,28 @@ function renderFooterCats(categories) {
     li.appendChild(btn);
     el.appendChild(li);
   });
+
+  if (!showAll) {
+    const moreLi = document.createElement('li');
+    moreLi.className = 'footer-more-wrap';
+    const moreBtn = document.createElement('button');
+    moreBtn.className = 'footer-more-btn';
+    moreBtn.textContent = `展开更多 (${categories.length - 6})`;
+    moreBtn.addEventListener('click', () => {
+      // Replace with all categories
+      el.innerHTML = '';
+      categories.forEach(cat => {
+        const li = document.createElement('li');
+        const btn = document.createElement('button');
+        btn.textContent = cat.name;
+        btn.addEventListener('click', () => navigateCategory(cat.id));
+        li.appendChild(btn);
+        el.appendChild(li);
+      });
+    });
+    moreLi.appendChild(moreBtn);
+    el.appendChild(moreLi);
+  }
 }
 
 function renderFooterStats(stats) {
@@ -844,40 +963,17 @@ function renderFooterStats(stats) {
 }
 
 // ── Utilities ─────────────────────────────────────────────
-function copyToClipboard(text) {
-  if (!text) return;
-  navigator.clipboard.writeText(text).catch(() => {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-  });
-}
-
-function showToast(message, type = 'info') {
-  const toast = document.getElementById('toast');
-  toast.textContent = message;
-  toast.className = 'toast show' + (type !== 'info' ? ' toast-' + type : '');
-  setTimeout(() => toast.classList.remove('show'), 2500);
-}
-
-function toggleFav(promptId, btn) {
-  btn.classList.toggle('active');
-  const isActive = btn.classList.contains('active');
-  showToast(isActive ? '已添加收藏' : '已取消收藏');
-}
-
-function timeAgo(timestamp) {
-  const diff = Date.now() - timestamp;
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return '刚刚';
-  if (mins < 60) return `${mins} 分钟前`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} 小时前`;
-  const days = Math.floor(hours / 24);
-  return `${days} 天前`;
+async function toggleFav(promptId, btn) {
+  try {
+    const result = await api('/api/prompts/' + promptId + '/favorite', { method: 'POST' });
+    btn.classList.toggle('active', result.favorite);
+    // Update in-memory prompt
+    const prompt = state.currentPrompts.find(p => p.id === promptId);
+    if (prompt) prompt.favorite = result.favorite;
+    showToast(result.favorite ? '已添加收藏' : '已取消收藏');
+  } catch (err) {
+    showToast('操作失败', 'error');
+  }
 }
 
 // ── Event listeners ───────────────────────────────────────
@@ -893,17 +989,7 @@ document.getElementById('lightboxCopy').addEventListener('click', () => {
   if (p) {
     copyToClipboard(p.prompt_text);
     const btn = document.getElementById('lightboxCopy');
-    const orig = btn.innerHTML;
-    btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>已复制!';
-    btn.style.borderColor = 'var(--success)';
-    btn.style.background = 'var(--success)';
-    btn.style.color = '#fff';
-    setTimeout(() => {
-      btn.innerHTML = orig;
-      btn.style.borderColor = '';
-      btn.style.background = '';
-      btn.style.color = '';
-    }, 1500);
+    animateCopyButton(btn, COPY_SVG + '复制提示词');
     showToast('提示词已复制', 'success');
   }
 });
@@ -923,6 +1009,15 @@ document.addEventListener('keydown', e => {
     if (e.key === 'Escape') closeLightbox();
     if (e.key === 'ArrowLeft') document.getElementById('lightboxPrev').click();
     if (e.key === 'ArrowRight') document.getElementById('lightboxNext').click();
+    // Focus trap: cycle Tab within lightbox
+    if (e.key === 'Tab') {
+      const focusable = document.getElementById('lightbox').querySelectorAll('button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])');
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
   }
 });
 
@@ -973,8 +1068,8 @@ function renderGalleryGrid(grid, images, promptId) {
     const syncedBadge = img.synced
       ? '<div class="gallery-item-synced-badge"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>'
       : '';
-    return '<div class="gallery-item" data-id="' + img.id + '" data-url="' + img.url + '">' +
-      '<img src="' + img.url + '" alt="实战图片" loading="lazy"/>' +
+    return '<div class="gallery-item" data-id="' + escapeHtml(img.id) + '" data-url="' + escapeHtml(img.url) + '">' +
+      '<img src="' + escapeHtml(img.url) + '" alt="实战图片" loading="lazy"/>' +
       syncedBadge +
       '<div class="gallery-item-overlay">' +
         (!img.synced
@@ -1125,10 +1220,14 @@ async function uploadGalleryFiles(files) {
   await renderGallery(prompt.id);
 }
 
-// Nav indicator on resize
+// Nav indicator on resize (debounced)
+let resizeTimer;
 window.addEventListener('resize', () => {
-  const active = document.querySelector('.primary-nav button.active');
-  if (active) updateNavIndicator(active);
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    const active = document.querySelector('.primary-nav button.active');
+    if (active) updateNavIndicator(active);
+  }, 100);
 });
 
 // Scroll to top
@@ -1149,6 +1248,9 @@ document.addEventListener('keydown', e => {
     openSearch();
   }
 });
+
+// ── Hash routing ──────────────────────────────────────────
+window.addEventListener('hashchange', handleRoute);
 
 // ── Boot ──────────────────────────────────────────────────
 init();

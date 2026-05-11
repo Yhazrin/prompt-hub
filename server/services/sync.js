@@ -13,6 +13,7 @@ export async function syncAllFromWiki() {
   const logEntry = addSyncLog('full', 'running', 0, []);
   let syncedCount = 0;
   const errors = [];
+  const changedIds = [];
 
   try {
     console.log('📡 Fetching wiki nodes...');
@@ -91,6 +92,7 @@ export async function syncAllFromWiki() {
             category_id: categoryId,
             subcategory: categoryName,
           });
+          if (prompt.id) changedIds.push(prompt.id);
           syncedCount++;
         }
       } catch (err) {
@@ -101,7 +103,7 @@ export async function syncAllFromWiki() {
 
     updateSyncLog(logEntry.id, 'success', syncedCount, errors);
     console.log(`✅ Sync complete: ${syncedCount} prompts synced`);
-    return { syncedCount, errors };
+    return { syncedCount, errors, changedIds };
   } catch (err) {
     updateSyncLog(logEntry.id, 'failed', syncedCount, [err.message]);
     console.error('❌ Sync failed:', err);

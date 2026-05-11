@@ -8,6 +8,53 @@ const LOG_FILE = path.join(DATA_DIR, 'sync_log.json');
 
 let data = { prompts: [], categories: [] };
 let log = [];
+let categoriesDirty = true;
+let categoriesCache = null;
+
+// ── Search index (token → Set<promptId>) ──────────────────
+let searchIndex = new Map();
+let searchIndexDirty = true;
+
+function buildSearchIndex() {
+  searchIndex.clear();
+  for (const p of data.prompts) {
+    if (!p.prompt_text) continue;
+    const text = ((p.title || '') + ' ' + p.prompt_text).toLowerCase();
+    const tokens = text.split(/\s+/).filter(t => t.length > 1);
+    for (const token of tokens) {
+      if (!searchIndex.has(token)) searchIndex.set(token, new Set());
+      searchIndex.get(token).add(p.id);
+    }
+    // Also index full chars for CJK search
+    for (const ch of text) {
+      if (ch.charCodeAt(0) > 0x7f && ch.trim()) {
+        if (!searchIndex.has(ch)) searchIndex.set(ch, new Set());
+        searchIndex.get(ch).add(p.id);
+      }
+    }
+  }
+  searchIndexDirty = false;
+}
+
+// ── Debounced save ──────────────────────────────────────────
+let saveTimer = null;
+function scheduleSave() {
+  if (saveTimer) return;
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    _doSave();
+  }, 100);
+}
+
+function _doSave() {
+  ensureDataDir();
+  fs.writeFileSync(DATA_FILE, JSON.stringify({ prompts: data.prompts }, null, 2));
+  fs.writeFileSync(CATS_FILE, JSON.stringify(data.categories, null, 2));
+}
+
+function flushSave() {
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; _doSave(); }
+}
 
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -26,13 +73,14 @@ export function loadData() {
   }
   if (!data.prompts) data.prompts = [];
   if (!log) log = [];
+  buildSearchIndex();
   return data;
 }
 
 export function saveData() {
-  ensureDataDir();
-  fs.writeFileSync(DATA_FILE, JSON.stringify({ prompts: data.prompts }, null, 2));
-  fs.writeFileSync(CATS_FILE, JSON.stringify(data.categories, null, 2));
+  categoriesDirty = true;
+  searchIndexDirty = true;
+  scheduleSave();
 }
 
 export function saveLog() {
@@ -45,8 +93,33 @@ export function getPrompts({ category, sub, search, page = 1, limit = 50, sort =
   if (category) result = result.filter(p => p.category_id === category);
   if (sub) result = result.filter(p => p.subcategory === sub);
   if (search) {
+    if (searchIndexDirty) buildSearchIndex();
     const s = search.toLowerCase();
-    result = result.filter(p => (p.title||'').toLowerCase().includes(s) || (p.prompt_text||'').toLowerCase().includes(s));
+    const tokens = s.split(/\s+/).filter(t => t.length > 0);
+    // Use index for fast candidate filtering
+    let candidateIds = null;
+    for (const token of tokens) {
+      const ids = new Set();
+      for (const [key, idSet] of searchIndex) {
+        if (key.includes(token)) {
+          for (const id of idSet) ids.add(id);
+        }
+      }
+      if (candidateIds === null) {
+        candidateIds = ids;
+      } else {
+        // Intersection (AND semantics)
+        for (const id of candidateIds) {
+          if (!ids.has(id)) candidateIds.delete(id);
+        }
+      }
+    }
+    if (candidateIds && candidateIds.size > 0) {
+      result = result.filter(p => candidateIds.has(p.id));
+    } else {
+      // Fallback to brute-force
+      result = result.filter(p => (p.title||'').toLowerCase().includes(s) || (p.prompt_text||'').toLowerCase().includes(s));
+    }
   }
   result.sort((a, b) => {
     const va = a[sort] || 0, vb = b[sort] || 0;
@@ -92,9 +165,13 @@ export function getSubs(categoryId) {
 }
 
 export function getCategories() {
-  return data.categories
-    .map(c => ({ ...c, prompt_count: data.prompts.filter(p => p.category_id === c.id && p.prompt_text).length }))
-    .sort((a, b) => (a.sort_order || 999) - (b.sort_order || 999));
+  if (categoriesDirty || !categoriesCache) {
+    categoriesCache = data.categories
+      .map(c => ({ ...c, prompt_count: data.prompts.filter(p => p.category_id === c.id && p.prompt_text).length }))
+      .sort((a, b) => (a.sort_order || 999) - (b.sort_order || 999));
+    categoriesDirty = false;
+  }
+  return categoriesCache;
 }
 
 export function upsertCategory({ id, name, description = '', sort_order = 99 }) {
@@ -131,6 +208,14 @@ export function getGalleryImages(promptId) {
   if (!prompt) return [];
   if (!prompt.gallery_images) { prompt.gallery_images = []; saveData(); }
   return prompt.gallery_images;
+}
+
+export function getGalleryImagesBatch(ids) {
+  const result = {};
+  for (const id of ids) {
+    result[id] = getGalleryImages(id);
+  }
+  return result;
 }
 
 export function addGalleryImage(promptId, imageEntry) {
@@ -175,6 +260,15 @@ export function updatePromptField(promptId, field, value) {
   saveData();
 }
 
+export function toggleFavorite(promptId) {
+  const prompt = data.prompts.find(p => p.id === promptId);
+  if (!prompt) return null;
+  prompt.favorite = !prompt.favorite;
+  prompt.updated_at = Date.now();
+  saveData();
+  return prompt.favorite;
+}
+
 export function addSyncLog(syncType, status, itemsSynced = 0, errors = []) {
   const entry = {
     id: log.length + 1, sync_type: syncType, status, items_synced: itemsSynced,
@@ -195,3 +289,8 @@ export function updateSyncLog(id, status, itemsSynced, errors) {
 
 export function getSyncLog() { return log.slice(-20).reverse(); }
 export function getLastSync() { return log[log.length - 1] || null; }
+
+// Flush pending writes on shutdown
+process.on('beforeExit', flushSave);
+process.on('SIGINT', () => { flushSave(); process.exit(0); });
+process.on('SIGTERM', () => { flushSave(); process.exit(0); });

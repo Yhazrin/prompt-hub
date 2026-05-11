@@ -3,7 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { getPrompts, getPrompt, getCategories, getSubs, getStats, incrementViewCount, getGalleryImages, addGalleryImage, deleteGalleryImage, markGalleryImageSynced } from '../services/database.js';
+import { getPrompts, getPrompt, getCategories, getSubs, getStats, incrementViewCount, getGalleryImages, getGalleryImagesBatch, addGalleryImage, deleteGalleryImage, markGalleryImageSynced, toggleFavorite } from '../services/database.js';
 import { uploadImageToFeishu, appendImageBlockToDoc } from '../services/feishu.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -65,6 +65,17 @@ router.get('/prompts/:id', (req, res) => {
   }
 });
 
+// POST /api/prompts/:id/favorite — toggle favorite
+router.post('/prompts/:id/favorite', (req, res) => {
+  try {
+    const result = toggleFavorite(req.params.id);
+    if (result === null) return res.status(404).json({ error: 'Not found' });
+    res.json({ favorite: result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/categories
 router.get('/categories', (req, res) => {
   try {
@@ -92,6 +103,24 @@ router.get('/stats', (req, res) => {
   }
 });
 
+// POST /api/prompts/batch — fetch specific prompts by IDs
+router.post('/prompts/batch', (req, res) => {
+  try {
+    const ids = req.body.ids || [];
+    if (ids.length === 0) return res.json([]);
+    if (ids.length > 200) return res.status(400).json({ error: 'Max 200 ids per request' });
+    const cats = getCategories();
+    const result = ids.map(id => {
+      const p = getPrompt(id);
+      if (!p) return null;
+      return { ...p, category_name: cats.find(c => c.id === p.category_id)?.name || p.category_id };
+    }).filter(Boolean);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/search
 router.get('/search', (req, res) => {
   try {
@@ -104,6 +133,18 @@ router.get('/search', (req, res) => {
       category_name: cats.find(c => c.id === p.category_id)?.name || p.category_id,
     }));
     res.json(result.prompts);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/gallery/batch?ids=id1,id2,id3 — batch gallery fetch
+router.get('/gallery/batch', (req, res) => {
+  try {
+    const ids = (req.query.ids || '').split(',').filter(Boolean);
+    if (ids.length === 0) return res.json({});
+    if (ids.length > 200) return res.status(400).json({ error: 'Max 200 ids per request' });
+    res.json(getGalleryImagesBatch(ids));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
