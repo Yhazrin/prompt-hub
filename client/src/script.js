@@ -931,53 +931,97 @@ async function deleteGalleryImage(promptId, imageId, itemEl) {
 
 // Upload input change handler — set up once
 document.getElementById('galleryUploadInput')?.addEventListener('change', async function () {
-  const file = this.files && this.files[0];
-  if (!file) return;
+  const files = this.files;
+  if (!files || files.length === 0) return;
   this.value = ''; // reset so same file can be re-selected
+  await uploadGalleryFiles(Array.from(files));
+});
 
+// ── Drag and Drop ────────────────────────────────────────
+function setupGalleryDragDrop() {
+  const grid = document.getElementById('galleryGrid');
+  const gallery = document.querySelector('.lightbox-gallery');
+  if (!grid || !gallery) return;
+
+  // Prevent default drag behaviors on the gallery area
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
+    gallery.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); });
+  });
+
+  // Highlight on drag enter/over
+  ['dragenter', 'dragover'].forEach(evt => {
+    gallery.addEventListener(evt, () => grid.classList.add('drag-over'));
+  });
+  ['dragleave', 'drop'].forEach(evt => {
+    gallery.addEventListener(evt, () => grid.classList.remove('drag-over'));
+  });
+
+  // Handle dropped files
+  gallery.addEventListener('drop', e => {
+    const files = e.dataTransfer?.files;
+    if (!files || files.length === 0) return;
+    const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (imageFiles.length === 0) return;
+    uploadGalleryFiles(imageFiles);
+  });
+}
+
+// Call once on init
+setupGalleryDragDrop();
+
+async function uploadGalleryFiles(files) {
   const prompt = state.currentPrompts[state.lightboxIndex];
   if (!prompt) return;
 
-  // Check if current cover is a mock (no real image from Feishu)
   const coverUrl = prompt.cover_url || prompt.image_url || '';
   const isMockCover = !coverUrl || coverUrl.includes('picsum.photos');
 
   const grid = document.getElementById('galleryGrid');
   const origHtml = grid.innerHTML;
-  grid.innerHTML = '<div class="gallery-uploading"><svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 4v6h-6M1 20v-6h6"/></svg>上传中...</div>';
 
-  const formData = new FormData();
-  formData.append('image', file);
+  let uploadedCount = 0;
+  let syncedThisSession = false;
 
-  try {
-    const result = await fetch('/api/prompts/' + prompt.id + '/gallery', {
-      method: 'POST',
-      body: formData,
-    }).then(async r => {
-      if (!r.ok) throw new Error(await r.text());
-      return r.json();
-    });
+  for (let i = 0; i < files.length; i++) {
+    grid.innerHTML = '<div class="gallery-uploading"><svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 4v6h-6M1 20v-6h6"/></svg>' +
+      (files.length > 1 ? ` 上传 ${i + 1}/${files.length}...` : '上传中...') + '</div>';
 
-    const newImg = result.image;
-    showToast('上传成功', 'success');
-    await renderGallery(prompt.id);
+    const formData = new FormData();
+    formData.append('image', files[i]);
 
-    // Auto-sync to Feishu if current cover is a mock (Feishu doc has no real images yet)
-    if (isMockCover && newImg && prompt.wiki_obj_token) {
-      showToast('当前为 mock 封面，开始同步到飞书文档...', 'info');
-      try {
-        await api('/api/prompts/' + prompt.id + '/gallery/' + newImg.id + '/sync', { method: 'POST' });
-        showToast('已同步到飞书文档', 'success');
-      } catch (err) {
-        showToast('同步到飞书失败，可稍后手动重试', 'error');
+    try {
+      const result = await fetch('/api/prompts/' + prompt.id + '/gallery', {
+        method: 'POST',
+        body: formData,
+      }).then(async r => {
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+      });
+
+      uploadedCount++;
+      const newImg = result.image;
+
+      // Auto-sync FIRST uploaded image if cover is mock (and not yet synced this session)
+      if (isMockCover && newImg && prompt.wiki_obj_token && !syncedThisSession) {
+        syncedThisSession = true;
+        showToast('当前为 mock 封面，开始同步到飞书文档...', 'info');
+        try {
+          await api('/api/prompts/' + prompt.id + '/gallery/' + newImg.id + '/sync', { method: 'POST' });
+          showToast('已同步到飞书文档', 'success');
+        } catch (err) {
+          showToast('同步到飞书失败，可稍后手动重试', 'error');
+        }
       }
-      await renderGallery(prompt.id);
+    } catch (err) {
+      showToast('上传失败: ' + (err.message || ''), 'error');
     }
-  } catch (err) {
-    showToast('上传失败', 'error');
-    grid.innerHTML = origHtml;
   }
-});
+
+  if (uploadedCount > 0) {
+    showToast(uploadedCount === 1 ? '上传成功' : `成功上传 ${uploadedCount} 张图片`, 'success');
+  }
+  await renderGallery(prompt.id);
+}
 
 // Nav indicator on resize
 window.addEventListener('resize', () => {
