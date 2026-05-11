@@ -2514,3 +2514,107 @@ body.lightbox-open {
   grid-column: 1 / -1;
   min-height: 6rem;
 }
+
+/* ── Lightbox Image Strip (left gallery thumbnails) ── */
+
+.lightbox-image-strip {
+  display: flex;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0 0.5rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.lightbox-image-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.strip-thumb {
+  flex-shrink: 0;
+  width: 3.2rem;
+  height: 3.2rem;
+  border-radius: 0.6rem;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid transparent;
+  opacity: 0.55;
+  transition: opacity 180ms ease, border-color 180ms ease, transform 150ms ease;
+  background: var(--surface-muted);
+}
+
+.strip-thumb:hover {
+  opacity: 0.85;
+  transform: scale(1.06);
+}
+
+.strip-thumb.active {
+  border-color: var(--accent);
+  opacity: 1;
+}
+
+.strip-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ── Mosaic Card Gallery Filmstrip ── */
+
+.mc-gallery-strip {
+  display: flex;
+  gap: 3px;
+  padding: 0 0.6rem 0.5rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-shrink: 0;
+}
+
+.mc-gallery-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.mc-gallery-thumb {
+  flex-shrink: 0;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 150ms ease, transform 150ms ease;
+  background: var(--surface-muted);
+}
+
+.mc-gallery-thumb:hover {
+  opacity: 1;
+  transform: scale(1.08);
+}
+
+.mc-gallery-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.mc-gallery-more {
+  flex-shrink: 0;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 4px;
+  background: rgba(18, 18, 18, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+}
+
+.mc-gallery-more:hover {
+  background: rgba(18, 18, 18, 0.7);
+}

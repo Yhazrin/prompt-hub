@@ -7,6 +7,8 @@ const state = {
   prompts: [],
   currentPrompts: [],     // prompts for current view
   lightboxIndex: 0,
+  lightboxGalleryImages: [], // gallery images for current lightbox prompt
+  galleryCache: {},           // promptId → [{url, id}]
   totalPrompts: 0,
   page: 1,
   loading: false,
@@ -208,6 +210,7 @@ async function renderHomeView(categories) {
 
     allPrompts.forEach(function(p, i) {
       mosaicGrid.appendChild(createMosaicCard(p, i, catMap));
+      fetchCardGallery(p.id);
     });
   } catch(e) {
     console.warn('Mosaic load failed:', e);
@@ -276,7 +279,8 @@ function createMosaicCard(prompt, index, catMap) {
     (!imgSrc ? '<span class="mc-cat-label" style="color:' + colors.label + '">' + catName + '</span>' : '') +
     '<div class="mc-meta">' +
     '<span class="mc-ratio"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><rect x="0.5" y="0.5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-opacity=".4"/><rect x="1.5" y="1.5" width="7" height="7" rx="1" fill="currentColor" fill-opacity=".25"/></svg>' + ratio + '</span>' +
-    '</div></div>';
+    '</div></div>' +
+    '<div class="mc-gallery-strip" id="mcgs-' + prompt.id.replace(/[^a-zA-Z0-9]/g, '_') + '"></div>';
 
   card.addEventListener('click', function(e) {
     if (e.target.closest('.mc-fav')) return;
@@ -293,6 +297,44 @@ function createMosaicCard(prompt, index, catMap) {
   }
 
   return card;
+}
+
+// ── Mosaic Card Gallery Strip ─────────────────────────────
+function renderCardGalleryStrip(promptId, images) {
+  const stripId = 'mcgs-' + promptId.replace(/[^a-zA-Z0-9]/g, '_');
+  const strip = document.getElementById(stripId);
+  if (!strip || !images || images.length === 0) return;
+
+  const show = images.slice(0, 4);
+  const extra = images.length - show.length;
+
+  strip.innerHTML = show.map(img =>
+    '<div class="mc-gallery-thumb" data-gallery-url="' + img.url + '">' +
+      '<img src="' + img.url + '" alt="" loading="lazy"/>' +
+    '</div>'
+  ).join('') + (extra > 0
+    ? '<div class="mc-gallery-more">+' + extra + '</div>'
+    : '');
+
+  strip.querySelectorAll('.mc-gallery-thumb').forEach(thumb => {
+    thumb.addEventListener('click', e => {
+      e.stopPropagation();
+      // Find the index of this prompt in currentPrompts
+      const idx = state.currentPrompts.findIndex(p => p.id === promptId);
+      if (idx >= 0) openLightbox(idx);
+    });
+  });
+}
+
+async function fetchCardGallery(promptId) {
+  if (state.galleryCache[promptId]) return state.galleryCache[promptId];
+  try {
+    const images = await api('/api/prompts/' + promptId + '/gallery');
+    state.galleryCache[promptId] = images;
+    renderCardGalleryStrip(promptId, images);
+  } catch (err) {
+    state.galleryCache[promptId] = [];
+  }
 }
 
 // ── Category View ─────────────────────────────────────────
@@ -357,6 +399,7 @@ async function loadPrompts(categoryId, subcategory, page) {
     data.prompts.forEach(p => {
       state.currentPrompts.push(p);
       grid.appendChild(createCard(p, state.currentPrompts.length - 1));
+      fetchCardGallery(p.id);
     });
 
     state.page = page;
@@ -467,7 +510,7 @@ function createCard(prompt, index) {
 }
 
 // ── Lightbox ──────────────────────────────────────────────
-function openLightbox(index) {
+async function openLightbox(index) {
   if (state.currentPrompts.length === 0) return;
   state.lightboxIndex = index;
   const prompt = state.currentPrompts[index];
@@ -483,11 +526,29 @@ function openLightbox(index) {
   imgWrap.classList.add('is-loading');
   img.classList.remove('is-loaded');
 
+  // Determine main image URL
+  const mainUrl = prompt.cover_url || prompt.image_url || `https://picsum.photos/seed/${prompt.id}/800/600`;
   img.onload = () => {
     imgWrap.classList.remove('is-loading');
     img.classList.add('is-loaded');
   };
-  img.src = (prompt.cover_url || prompt.image_url || `https://picsum.photos/seed/${prompt.id}/800/600`);
+  img.src = mainUrl;
+
+  // Fetch gallery images for the strip (left side)
+  let galleryImages = [];
+  try {
+    galleryImages = await api('/api/prompts/' + prompt.id + '/gallery');
+  } catch (err) {
+    galleryImages = [];
+  }
+  state.lightboxGalleryImages = galleryImages;
+
+  // Build full image list: main cover first, then gallery
+  const allImages = [{ url: mainUrl, isCover: true }].concat(
+    galleryImages.map(g => ({ url: g.url, id: g.id, isCover: false }))
+  );
+
+  renderLightboxImageStrip(allImages, mainUrl);
 
   promptEl.textContent = prompt.prompt_text || prompt.title;
   counter.textContent = `${index + 1} / ${state.currentPrompts.length}`;
@@ -519,8 +580,49 @@ function openLightbox(index) {
   document.getElementById('lightboxPrev').disabled = index === 0;
   document.getElementById('lightboxNext').disabled = index === state.currentPrompts.length - 1;
 
-  // Render gallery
+  // Render gallery section (right side, uploads)
   renderGallery(prompt.id);
+}
+
+function renderLightboxImageStrip(allImages, activeUrl) {
+  const strip = document.getElementById('lightboxImageStrip');
+  if (!strip) return;
+
+  // Only show strip if there are gallery images beyond the cover
+  const galleryOnly = allImages.filter(img => !img.isCover);
+  if (galleryOnly.length === 0) {
+    strip.innerHTML = '';
+    return;
+  }
+
+  strip.innerHTML = galleryOnly.map(img => {
+    const active = img.url === activeUrl ? ' active' : '';
+    return '<div class="strip-thumb' + active + '" data-url="' + img.url + '" title="查看此图">' +
+      '<img src="' + img.url + '" alt="" loading="lazy"/>' +
+    '</div>';
+  }).join('');
+
+  strip.querySelectorAll('.strip-thumb').forEach(thumb => {
+    thumb.addEventListener('click', () => {
+      const url = thumb.dataset.url;
+      swapLightboxImage(url);
+      // Update active state
+      strip.querySelectorAll('.strip-thumb').forEach(t => t.classList.remove('active'));
+      thumb.classList.add('active');
+    });
+  });
+}
+
+function swapLightboxImage(url) {
+  const img = document.getElementById('lightboxImage');
+  const imgWrap = document.getElementById('lightboxImageWrap');
+  imgWrap.classList.add('is-loading');
+  img.classList.remove('is-loaded');
+  img.onload = () => {
+    imgWrap.classList.remove('is-loading');
+    img.classList.add('is-loaded');
+  };
+  img.src = url;
 }
 
 function closeLightbox() {
