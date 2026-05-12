@@ -4,6 +4,7 @@ module.exports = {
     script: 'server.mjs',
     cwd: '/opt/prompt-hub',
     instances: 1,
+    exec_mode: 'fork',
     autorestart: true,
     watch: false,
     max_memory_restart: '500M',
