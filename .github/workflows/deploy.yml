@@ -42,5 +42,7 @@ jobs:
               npm install --production --silent
               pm2 restart prompt-hub || pm2 start ecosystem.config.cjs
               curl -s -X POST http://127.0.0.1:3000/admin/sync || true
+              timeout 30 git fetch origin main
+              timeout 30 git reset --hard origin/main
               echo "Deploy complete at $(date)"
             '
