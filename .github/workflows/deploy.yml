@@ -40,7 +40,9 @@ jobs:
               cd /opt/prompt-hub
               tar -xzf /tmp/prompt-hub.tar.gz --strip-components=1
               npm install --production --silent
-              pm2 restart prompt-hub || pm2 start ecosystem.config.cjs
+              timeout 120 npm run build
+              pm2 delete prompt-hub 2>/dev/null || true
+              pm2 start ecosystem.config.cjs
               curl -s -X POST http://127.0.0.1:3000/admin/sync || true
               timeout 30 git fetch origin main
               timeout 30 git reset --hard origin/main
