@@ -71,7 +71,7 @@ html {
 body {
   font-family: var(--font-sans);
   color: var(--color-text);
-  background: #f0f2f5;
+  background: #eef0f4;
   min-height: 100vh;
   overflow-x: hidden;
 }
@@ -79,16 +79,16 @@ body {
 /* ── Apple Neumorphic Glass ─────────────────────────── */
 .glass {
   background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: none;
   box-shadow: var(--shadow-glass);
 }
 
 .glass-strong {
   background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(24px) saturate(200%);
-  -webkit-backdrop-filter: blur(24px) saturate(200%);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border: none;
   box-shadow: var(--shadow-glass-strong);
 }
