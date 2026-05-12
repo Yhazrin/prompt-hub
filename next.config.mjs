@@ -12,6 +12,7 @@ const nextConfig = {
   },
   // Custom server handles port binding
   experimental: {},
+  serverExternalPackages: ['./lib/database.mjs'],
 };
 
 export default nextConfig;
